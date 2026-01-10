@@ -478,13 +478,7 @@
                     <div class="setting-row">
                         <label for="font-family">Font</label>
                         <select id="font-family">
-                            <option value="'Courier New', Courier, monospace">Courier New</option>
-                            <option value="'Consolas', monospace">Consolas</option>
-                            <option value="'Monaco', monospace">Monaco</option>
-                            <option value="'Menlo', monospace">Menlo</option>
-                            <option value="'Liberation Mono', monospace">Liberation Mono</option>
-                            <option value="'Lucida Console', monospace">Lucida Console</option>
-                            <option value="monospace">System Monospace</option>
+                            <!-- Populated dynamically based on available fonts -->
                         </select>
                     </div>
 
@@ -759,8 +753,83 @@
         const contrastAmountValue = document.getElementById('contrast-amount-value');
         const contrastHistogram = document.getElementById('contrast-histogram');
 
+        // Font detection
+        const CANDIDATE_FONTS = [
+            { name: 'Courier New', value: "'Courier New', Courier, monospace" },
+            { name: 'Consolas', value: "'Consolas', monospace" },
+            { name: 'Monaco', value: "'Monaco', monospace" },
+            { name: 'Menlo', value: "'Menlo', monospace" },
+            { name: 'Liberation Mono', value: "'Liberation Mono', monospace" },
+            { name: 'Lucida Console', value: "'Lucida Console', monospace" },
+            { name: 'DejaVu Sans Mono', value: "'DejaVu Sans Mono', monospace" },
+            { name: 'Fira Code', value: "'Fira Code', monospace" },
+            { name: 'Source Code Pro', value: "'Source Code Pro', monospace" },
+            { name: 'JetBrains Mono', value: "'JetBrains Mono', monospace" },
+            { name: 'Roboto Mono', value: "'Roboto Mono', monospace" },
+            { name: 'Ubuntu Mono', value: "'Ubuntu Mono', monospace" },
+            { name: 'SF Mono', value: "'SF Mono', monospace" },
+            { name: 'Cascadia Code', value: "'Cascadia Code', monospace" },
+            { name: 'Hack', value: "'Hack', monospace" },
+            { name: 'Inconsolata', value: "'Inconsolata', monospace" },
+            { name: 'Droid Sans Mono', value: "'Droid Sans Mono', monospace" },
+            { name: 'PT Mono', value: "'PT Mono', monospace" },
+            { name: 'Andale Mono', value: "'Andale Mono', monospace" },
+            { name: 'OCR A Extended', value: "'OCR A Extended', monospace" },
+        ];
+
+        function isFontAvailable(fontName) {
+            // Create test elements
+            const baseFonts = ['monospace', 'sans-serif', 'serif'];
+            const testString = 'mmmmmmmmmmlli';
+            const testSize = '72px';
+
+            const span = document.createElement('span');
+            span.style.position = 'absolute';
+            span.style.left = '-9999px';
+            span.style.fontSize = testSize;
+            span.style.lineHeight = 'normal';
+            span.textContent = testString;
+            document.body.appendChild(span);
+
+            // Get baseline widths
+            const baseWidths = {};
+            for (const baseFont of baseFonts) {
+                span.style.fontFamily = baseFont;
+                baseWidths[baseFont] = span.offsetWidth;
+            }
+
+            // Test the candidate font
+            let detected = false;
+            for (const baseFont of baseFonts) {
+                span.style.fontFamily = `'${fontName}', ${baseFont}`;
+                if (span.offsetWidth !== baseWidths[baseFont]) {
+                    detected = true;
+                    break;
+                }
+            }
+
+            document.body.removeChild(span);
+            return detected;
+        }
+
+        function populateFontSelector() {
+            const availableFonts = CANDIDATE_FONTS.filter(f => isFontAvailable(f.name));
+
+            // Always include system monospace as fallback
+            availableFonts.push({ name: 'System Monospace', value: 'monospace' });
+
+            fontFamily.innerHTML = '';
+            for (const font of availableFonts) {
+                const option = document.createElement('option');
+                option.value = font.value;
+                option.textContent = font.name;
+                fontFamily.appendChild(option);
+            }
+        }
+
         // Initialize
         function init() {
+            populateFontSelector();
             setupEventListeners();
             updateDisplaySettings();
             updateCharRatio();
