@@ -556,15 +556,14 @@
                             <div class="setting-row">
                                 <label for="char-set">Character Set</label>
                                 <select id="char-set">
-                                    <option value="standard">Standard (@%#*+=-:. )</option>
-                                    <option value="detailed">Detailed (70 chars)</option>
-                                    <option value="blocks">Blocks (█▓▒░ )</option>
-                                    <option value="simple">Simple (#. )</option>
-                                    <option value="custom">Custom</option>
+                                    <option value="standard">Standard</option>
+                                    <option value="detailed">Detailed</option>
+                                    <option value="blocks">Blocks</option>
+                                    <option value="simple">Simple</option>
                                 </select>
                             </div>
-                            <div class="setting-row" id="custom-chars-row" style="display: none;">
-                                <label for="custom-chars">Custom characters (dark to light)</label>
+                            <div class="setting-row">
+                                <label for="custom-chars">Characters (dark to light)</label>
                                 <input type="text" id="custom-chars" value="@%#*+=-:. " placeholder="Characters dark to light">
                             </div>
                             <div class="setting-row">
@@ -794,7 +793,6 @@
 
         // Brightness settings
         const charSet = document.getElementById('char-set');
-        const customCharsRow = document.getElementById('custom-chars-row');
         const customChars = document.getElementById('custom-chars');
         const invertChars = document.getElementById('invert-chars');
 
@@ -1012,7 +1010,7 @@
 
             // Brightness settings
             charSet.addEventListener('change', () => {
-                customCharsRow.style.display = charSet.value === 'custom' ? 'block' : 'none';
+                customChars.value = CHAR_SETS[charSet.value] || CHAR_SETS.standard;
                 if (currentImage) convertToAscii();
             });
             customChars.addEventListener('input', () => { if (currentImage) convertToAscii(); });
@@ -1282,9 +1280,7 @@
             const { imageData, height } = getScaledImageData(img, width);
             const pixels = imageData.data;
 
-            let chars = charSet.value === 'custom'
-                ? (customChars.value || CHAR_SETS.standard)
-                : CHAR_SETS[charSet.value];
+            let chars = customChars.value || CHAR_SETS.standard;
 
             if (invertChars.checked) {
                 chars = chars.split('').reverse().join('');
