@@ -544,7 +544,6 @@
                             <option value="edge">Edge Detection</option>
                             <option value="dithering">Floyd-Steinberg Dithering</option>
                             <option value="pattern">Block Pattern Matching</option>
-                            <option value="colored">Colored ASCII</option>
                         </select>
                     </div>
 
@@ -559,6 +558,19 @@
                             <input type="checkbox" id="contrast-histogram">
                             <label for="contrast-histogram" style="margin: 0;">Histogram equalization</label>
                         </div>
+                    </div>
+
+                    <div class="setting-row">
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="colored-output">
+                            <label for="colored-output" style="margin: 0;">Colored output</label>
+                        </div>
+                    </div>
+
+                    <div class="setting-row" id="saturation-row" style="display: none;">
+                        <label for="color-saturation">Saturation</label>
+                        <input type="range" id="color-saturation" min="0" max="200" value="100">
+                        <div class="setting-value"><span id="color-saturation-value">100</span>%</div>
                     </div>
 
                     <div class="algo-settings" id="algo-settings">
@@ -653,36 +665,6 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Colored ASCII Settings -->
-                        <div class="algo-settings-panel" id="settings-colored">
-                            <h4>Colored ASCII Settings</h4>
-                            <div class="setting-row">
-                                <label for="colored-char-set">Character Set</label>
-                                <select id="colored-char-set">
-                                    <option value="standard">Standard</option>
-                                    <option value="detailed">Detailed</option>
-                                    <option value="blocks">Blocks</option>
-                                    <option value="single">Single (█)</option>
-                                </select>
-                            </div>
-                            <div class="setting-row">
-                                <label for="colored-chars">Characters (dark to light)</label>
-                                <input type="text" id="colored-chars" value="@%#*+=-:. " placeholder="Characters dark to light">
-                            </div>
-                            <div class="setting-row">
-                                <label for="color-saturation">Saturation</label>
-                                <input type="range" id="color-saturation" min="0" max="200" value="100">
-                                <div class="setting-value"><span id="color-saturation-value">100</span>%</div>
-                            </div>
-                            <div class="setting-row">
-                                <div class="checkbox-row">
-                                    <input type="checkbox" id="colored-invert">
-                                    <label for="colored-invert" style="margin: 0;">Invert brightness</label>
-                                </div>
-                            </div>
-                        </div>
-
                     </div>
                 </div>
 
@@ -798,12 +780,11 @@
         const patternChars = document.getElementById('pattern-chars');
         const patternInvert = document.getElementById('pattern-invert');
 
-        // Colored settings
-        const coloredCharSet = document.getElementById('colored-char-set');
-        const coloredChars = document.getElementById('colored-chars');
+        // Color output settings (global)
+        const coloredOutput = document.getElementById('colored-output');
+        const saturationRow = document.getElementById('saturation-row');
         const colorSaturation = document.getElementById('color-saturation');
         const colorSaturationValue = document.getElementById('color-saturation-value');
-        const coloredInvert = document.getElementById('colored-invert');
 
         // Contrast settings (global pre-processing)
         const contrastAmount = document.getElementById('contrast-amount');
@@ -906,7 +887,6 @@
             edgeInvert.checked = shouldInvert;
             ditherInvert.checked = shouldInvert;
             patternInvert.checked = shouldInvert;
-            coloredInvert.checked = shouldInvert;
         }
 
         // Initialize
@@ -1021,17 +1001,15 @@
             patternChars.addEventListener('input', () => { if (currentImage) convertToAscii(); });
             patternInvert.addEventListener('change', () => { if (currentImage) convertToAscii(); });
 
-            // Colored settings
-            coloredCharSet.addEventListener('change', () => {
-                coloredChars.value = CHAR_SETS[coloredCharSet.value] || CHAR_SETS.standard;
+            // Color output settings (global)
+            coloredOutput.addEventListener('change', () => {
+                saturationRow.style.display = coloredOutput.checked ? 'block' : 'none';
                 if (currentImage) convertToAscii();
             });
-            coloredChars.addEventListener('input', () => { if (currentImage) convertToAscii(); });
             colorSaturation.addEventListener('input', () => {
                 colorSaturationValue.textContent = colorSaturation.value;
                 if (currentImage) convertToAscii();
             });
-            coloredInvert.addEventListener('change', () => { if (currentImage) convertToAscii(); });
 
             // Contrast settings (global)
             contrastAmount.addEventListener('input', () => {
@@ -1194,37 +1172,72 @@
                 switch (algo) {
                     case 'brightness':
                         result = brightnessMapping(currentImage);
-                        asciiOutput.style.color = 'var(--ascii-text)';
-                        asciiOutput.textContent = result.ascii;
                         break;
                     case 'edge':
                         result = edgeDetection(currentImage);
-                        asciiOutput.style.color = 'var(--ascii-text)';
-                        asciiOutput.textContent = result.ascii;
                         break;
                     case 'dithering':
                         result = floydSteinbergDithering(currentImage);
-                        asciiOutput.style.color = 'var(--ascii-text)';
-                        asciiOutput.textContent = result.ascii;
                         break;
                     case 'pattern':
                         result = blockPatternMatching(currentImage);
-                        asciiOutput.style.color = 'var(--ascii-text)';
-                        asciiOutput.textContent = result.ascii;
-                        break;
-                    case 'colored':
-                        result = coloredAscii(currentImage);
-                        asciiOutput.innerHTML = result.html;
-                        lastColoredHtml = result.html;
                         break;
                     default:
                         result = brightnessMapping(currentImage);
-                        asciiOutput.textContent = result.ascii;
+                }
+
+                // Apply color if enabled
+                if (coloredOutput.checked) {
+                    const html = applyColorToAscii(result.ascii, result.width, result.height);
+                    asciiOutput.innerHTML = html;
+                    lastColoredHtml = html;
+                } else {
+                    asciiOutput.style.color = 'var(--ascii-text)';
+                    asciiOutput.textContent = result.ascii;
                 }
 
                 outputInfo.textContent = `${result.width} × ${result.height} chars`;
                 showLoading(false);
             }, 10);
+        }
+
+        // Apply color to ASCII output
+        function applyColorToAscii(ascii, width, height) {
+            const { imageData } = getScaledImageData(currentImage, width);
+            const pixels = imageData.data;
+            const saturation = parseInt(colorSaturation.value) / 100;
+
+            const lines = ascii.split('\n');
+            let html = '';
+
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const char = lines[y] ? lines[y][x] : ' ';
+                    if (!char) continue;
+
+                    const i = (y * width + x) * 4;
+                    let r = pixels[i];
+                    let g = pixels[i + 1];
+                    let b = pixels[i + 2];
+
+                    // Apply saturation
+                    if (saturation !== 1) {
+                        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                        r = Math.round(gray + saturation * (r - gray));
+                        g = Math.round(gray + saturation * (g - gray));
+                        b = Math.round(gray + saturation * (b - gray));
+                        r = Math.max(0, Math.min(255, r));
+                        g = Math.max(0, Math.min(255, g));
+                        b = Math.max(0, Math.min(255, b));
+                    }
+
+                    const escaped = escapeHtml(char);
+                    html += `<span style="color:rgb(${r},${g},${b})">${escaped}</span>`;
+                }
+                html += '\n';
+            }
+
+            return html;
         }
 
         // Get scaled image data
@@ -1519,61 +1532,6 @@
             return patterns;
         }
 
-        // Algorithm: Colored ASCII
-        function coloredAscii(img) {
-            const width = parseInt(charsPerRow.value);
-            const { imageData, height } = getScaledImageData(img, width);
-            const pixels = imageData.data;
-            const saturation = parseInt(colorSaturation.value) / 100;
-            const invert = coloredInvert.checked;
-
-            let chars = coloredChars.value || CHAR_SETS.standard;
-            if (invert) {
-                chars = chars.split('').reverse().join('');
-            }
-
-            // Calculate brightness values for character selection
-            const brightnessValues = new Float32Array(width * height);
-            for (let i = 0; i < width * height; i++) {
-                const pi = i * 4;
-                brightnessValues[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
-            }
-
-            // Apply contrast pre-processing to brightness (for character selection)
-            applyContrast(brightnessValues);
-
-            let html = '';
-            for (let y = 0; y < height; y++) {
-                for (let x = 0; x < width; x++) {
-                    const idx = y * width + x;
-                    const i = idx * 4;
-                    let r = pixels[i];
-                    let g = pixels[i + 1];
-                    let b = pixels[i + 2];
-
-                    // Apply saturation
-                    if (saturation !== 1) {
-                        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-                        r = Math.round(gray + saturation * (r - gray));
-                        g = Math.round(gray + saturation * (g - gray));
-                        b = Math.round(gray + saturation * (b - gray));
-                        r = Math.max(0, Math.min(255, r));
-                        g = Math.max(0, Math.min(255, g));
-                        b = Math.max(0, Math.min(255, b));
-                    }
-
-                    const brightness = brightnessValues[idx];
-                    const charIndex = Math.min(chars.length - 1, Math.floor(brightness * chars.length));
-                    const char = chars[charIndex];
-                    const escaped = escapeHtml(char);
-
-                    html += `<span style="color:rgb(${r},${g},${b})">${escaped}</span>`;
-                }
-                html += '\n';
-            }
-
-            return { html, width, height, ascii: '' };
-        }
 
         // Contrast pre-processing helper
         function applyContrast(brightness) {
@@ -1646,10 +1604,10 @@
         }
 
         function copyAsHtml() {
-            const isColored = algorithm.value === 'colored';
+            const isColored = coloredOutput.checked && lastColoredHtml;
             let html;
 
-            if (isColored && lastColoredHtml) {
+            if (isColored) {
                 html = `<pre style="font-family: ${fontFamily.value}; font-size: ${fontSize.value}px; line-height: 1; letter-spacing: 0; background: #000;">${lastColoredHtml}</pre>`;
             } else {
                 const text = asciiOutput.textContent;
@@ -1699,7 +1657,7 @@
                 return;
             }
 
-            const isColored = algorithm.value === 'colored' && lastColoredHtml;
+            const isColored = coloredOutput.checked && lastColoredHtml;
             const lines = text ? text.split('\n').filter(l => l.length > 0) : [];
 
             // Measure character dimensions
