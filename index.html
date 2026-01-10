@@ -700,7 +700,7 @@
 
         // ASCII conversion
         function convertToAscii() {
-            if (!currentImage || isProcessing) return;
+            if (!currentImage) return;
 
             showLoading(true);
             asciiOutput.textContent = '';
