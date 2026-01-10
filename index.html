@@ -545,8 +545,20 @@
                             <option value="dithering">Floyd-Steinberg Dithering</option>
                             <option value="pattern">Block Pattern Matching</option>
                             <option value="colored">Colored ASCII</option>
-                            <option value="contrast">Contrast Enhanced</option>
                         </select>
+                    </div>
+
+                    <div class="setting-row">
+                        <label for="contrast-amount">Contrast</label>
+                        <input type="range" id="contrast-amount" min="50" max="300" value="100">
+                        <div class="setting-value"><span id="contrast-amount-value">100</span>%</div>
+                    </div>
+
+                    <div class="setting-row">
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="contrast-histogram">
+                            <label for="contrast-histogram" style="margin: 0;">Histogram equalization</label>
+                        </div>
                     </div>
 
                     <div class="algo-settings" id="algo-settings">
@@ -671,39 +683,6 @@
                             </div>
                         </div>
 
-                        <!-- Contrast Enhanced Settings -->
-                        <div class="algo-settings-panel" id="settings-contrast">
-                            <h4>Contrast Enhanced Settings</h4>
-                            <div class="setting-row">
-                                <label for="contrast-char-set">Character Set</label>
-                                <select id="contrast-char-set">
-                                    <option value="standard">Standard</option>
-                                    <option value="detailed">Detailed</option>
-                                    <option value="blocks">Blocks</option>
-                                </select>
-                            </div>
-                            <div class="setting-row">
-                                <label for="contrast-chars">Characters (dark to light)</label>
-                                <input type="text" id="contrast-chars" value="@%#*+=-:. " placeholder="Characters dark to light">
-                            </div>
-                            <div class="setting-row">
-                                <label for="contrast-amount">Contrast Amount</label>
-                                <input type="range" id="contrast-amount" min="100" max="300" value="150">
-                                <div class="setting-value"><span id="contrast-amount-value">150</span>%</div>
-                            </div>
-                            <div class="setting-row">
-                                <div class="checkbox-row">
-                                    <input type="checkbox" id="contrast-histogram" checked>
-                                    <label for="contrast-histogram" style="margin: 0;">Histogram equalization</label>
-                                </div>
-                            </div>
-                            <div class="setting-row">
-                                <div class="checkbox-row">
-                                    <input type="checkbox" id="contrast-invert">
-                                    <label for="contrast-invert" style="margin: 0;">Invert brightness</label>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
@@ -826,13 +805,10 @@
         const colorSaturationValue = document.getElementById('color-saturation-value');
         const coloredInvert = document.getElementById('colored-invert');
 
-        // Contrast settings
-        const contrastCharSet = document.getElementById('contrast-char-set');
-        const contrastChars = document.getElementById('contrast-chars');
+        // Contrast settings (global pre-processing)
         const contrastAmount = document.getElementById('contrast-amount');
         const contrastAmountValue = document.getElementById('contrast-amount-value');
         const contrastHistogram = document.getElementById('contrast-histogram');
-        const contrastInvert = document.getElementById('contrast-invert');
 
         // Font detection
         const CANDIDATE_FONTS = [
@@ -931,7 +907,6 @@
             ditherInvert.checked = shouldInvert;
             patternInvert.checked = shouldInvert;
             coloredInvert.checked = shouldInvert;
-            contrastInvert.checked = shouldInvert;
         }
 
         // Initialize
@@ -1058,18 +1033,12 @@
             });
             coloredInvert.addEventListener('change', () => { if (currentImage) convertToAscii(); });
 
-            // Contrast settings
-            contrastCharSet.addEventListener('change', () => {
-                contrastChars.value = CHAR_SETS[contrastCharSet.value] || CHAR_SETS.standard;
-                if (currentImage) convertToAscii();
-            });
-            contrastChars.addEventListener('input', () => { if (currentImage) convertToAscii(); });
+            // Contrast settings (global)
             contrastAmount.addEventListener('input', () => {
                 contrastAmountValue.textContent = contrastAmount.value;
                 if (currentImage) convertToAscii();
             });
             contrastHistogram.addEventListener('change', () => { if (currentImage) convertToAscii(); });
-            contrastInvert.addEventListener('change', () => { if (currentImage) convertToAscii(); });
 
             // Copy buttons
             copyTextBtn.addEventListener('click', copyAsText);
@@ -1248,11 +1217,6 @@
                         asciiOutput.innerHTML = result.html;
                         lastColoredHtml = result.html;
                         break;
-                    case 'contrast':
-                        result = contrastEnhanced(currentImage);
-                        asciiOutput.style.color = 'var(--ascii-text)';
-                        asciiOutput.textContent = result.ascii;
-                        break;
                     default:
                         result = brightnessMapping(currentImage);
                         asciiOutput.textContent = result.ascii;
@@ -1294,11 +1258,20 @@
                 chars = chars.split('').reverse().join('');
             }
 
+            // Calculate brightness values
+            const brightnessValues = new Float32Array(width * height);
+            for (let i = 0; i < width * height; i++) {
+                const pi = i * 4;
+                brightnessValues[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
+            }
+
+            // Apply contrast pre-processing
+            applyContrast(brightnessValues);
+
             let ascii = '';
             for (let y = 0; y < height; y++) {
                 for (let x = 0; x < width; x++) {
-                    const i = (y * width + x) * 4;
-                    const brightness = getBrightness(pixels[i], pixels[i + 1], pixels[i + 2]);
+                    const brightness = brightnessValues[y * width + x];
                     const charIndex = Math.min(chars.length - 1, Math.floor(brightness * chars.length));
                     ascii += chars[charIndex];
                 }
@@ -1320,7 +1293,15 @@
             const gray = new Float32Array(width * height);
             for (let i = 0; i < width * height; i++) {
                 const pi = i * 4;
-                gray[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]) * 255;
+                gray[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
+            }
+
+            // Apply contrast pre-processing
+            applyContrast(gray);
+
+            // Scale to 0-255 for edge detection
+            for (let i = 0; i < gray.length; i++) {
+                gray[i] *= 255;
             }
 
             // Sobel kernels
@@ -1386,6 +1367,9 @@
                 brightness[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
             }
 
+            // Apply contrast pre-processing
+            applyContrast(brightness);
+
             // Floyd-Steinberg dithering
             const levels = chars.length;
             for (let y = 0; y < height; y++) {
@@ -1444,6 +1428,14 @@
             const imageData = ctx.getImageData(0, 0, sampleWidth, sampleHeight);
             const pixels = imageData.data;
 
+            // Calculate all brightness values and apply contrast
+            const brightnessValues = new Float32Array(sampleWidth * sampleHeight);
+            for (let i = 0; i < sampleWidth * sampleHeight; i++) {
+                const pi = i * 4;
+                brightnessValues[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
+            }
+            applyContrast(brightnessValues);
+
             let ascii = '';
             for (let by = 0; by < outputHeight; by++) {
                 for (let bx = 0; bx < targetWidth; bx++) {
@@ -1454,8 +1446,7 @@
                             const px = bx * blockSize + x;
                             const py = by * blockSize + y;
                             if (px < sampleWidth && py < sampleHeight) {
-                                const i = (py * sampleWidth + px) * 4;
-                                let b = getBrightness(pixels[i], pixels[i + 1], pixels[i + 2]);
+                                let b = brightnessValues[py * sampleWidth + px];
                                 blockPattern.push(invert ? 1 - b : b);
                             } else {
                                 blockPattern.push(invert ? 0 : 1);
@@ -1541,10 +1532,21 @@
                 chars = chars.split('').reverse().join('');
             }
 
+            // Calculate brightness values for character selection
+            const brightnessValues = new Float32Array(width * height);
+            for (let i = 0; i < width * height; i++) {
+                const pi = i * 4;
+                brightnessValues[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
+            }
+
+            // Apply contrast pre-processing to brightness (for character selection)
+            applyContrast(brightnessValues);
+
             let html = '';
             for (let y = 0; y < height; y++) {
                 for (let x = 0; x < width; x++) {
-                    const i = (y * width + x) * 4;
+                    const idx = y * width + x;
+                    const i = idx * 4;
                     let r = pixels[i];
                     let g = pixels[i + 1];
                     let b = pixels[i + 2];
@@ -1560,7 +1562,7 @@
                         b = Math.max(0, Math.min(255, b));
                     }
 
-                    const brightness = getBrightness(r, g, b);
+                    const brightness = brightnessValues[idx];
                     const charIndex = Math.min(chars.length - 1, Math.floor(brightness * chars.length));
                     const char = chars[charIndex];
                     const escaped = escapeHtml(char);
@@ -1573,36 +1575,21 @@
             return { html, width, height, ascii: '' };
         }
 
-        // Algorithm: Contrast Enhanced
-        function contrastEnhanced(img) {
-            const width = parseInt(charsPerRow.value);
-            const { imageData, height } = getScaledImageData(img, width);
-            const pixels = imageData.data;
+        // Contrast pre-processing helper
+        function applyContrast(brightness) {
             const contrast = parseInt(contrastAmount.value) / 100;
             const useHistogram = contrastHistogram.checked;
-            const invert = contrastInvert.checked;
 
-            let chars = contrastChars.value || CHAR_SETS.standard;
-            if (invert) {
-                chars = chars.split('').reverse().join('');
-            }
-
-            // Calculate brightness values
-            const brightnessValues = new Float32Array(width * height);
-            let minB = 1, maxB = 0;
-            for (let i = 0; i < width * height; i++) {
-                const pi = i * 4;
-                const b = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
-                brightnessValues[i] = b;
-                minB = Math.min(minB, b);
-                maxB = Math.max(maxB, b);
+            // Skip if no adjustments needed
+            if (contrast === 1 && !useHistogram) {
+                return brightness;
             }
 
             // Histogram equalization
             if (useHistogram) {
                 const histogram = new Array(256).fill(0);
-                for (let i = 0; i < brightnessValues.length; i++) {
-                    const bin = Math.floor(brightnessValues[i] * 255);
+                for (let i = 0; i < brightness.length; i++) {
+                    const bin = Math.floor(brightness[i] * 255);
                     histogram[bin]++;
                 }
 
@@ -1613,38 +1600,23 @@
                 }
 
                 const cdfMin = cdf.find(v => v > 0);
-                const total = width * height;
-                for (let i = 0; i < brightnessValues.length; i++) {
-                    const bin = Math.floor(brightnessValues[i] * 255);
-                    brightnessValues[i] = (cdf[bin] - cdfMin) / (total - cdfMin);
-                }
-            } else {
-                // Simple contrast stretch
-                const range = maxB - minB || 1;
-                for (let i = 0; i < brightnessValues.length; i++) {
-                    brightnessValues[i] = (brightnessValues[i] - minB) / range;
+                const total = brightness.length;
+                for (let i = 0; i < brightness.length; i++) {
+                    const bin = Math.floor(brightness[i] * 255);
+                    brightness[i] = (cdf[bin] - cdfMin) / (total - cdfMin);
                 }
             }
 
             // Apply contrast adjustment
-            for (let i = 0; i < brightnessValues.length; i++) {
-                let b = brightnessValues[i];
-                b = (b - 0.5) * contrast + 0.5;
-                brightnessValues[i] = Math.max(0, Math.min(1, b));
-            }
-
-            // Convert to ASCII
-            let ascii = '';
-            for (let y = 0; y < height; y++) {
-                for (let x = 0; x < width; x++) {
-                    const brightness = brightnessValues[y * width + x];
-                    const charIndex = Math.min(chars.length - 1, Math.floor(brightness * chars.length));
-                    ascii += chars[charIndex];
+            if (contrast !== 1) {
+                for (let i = 0; i < brightness.length; i++) {
+                    let b = brightness[i];
+                    b = (b - 0.5) * contrast + 0.5;
+                    brightness[i] = Math.max(0, Math.min(1, b));
                 }
-                ascii += '\n';
             }
 
-            return { ascii, width, height };
+            return brightness;
         }
 
         // Utility functions
