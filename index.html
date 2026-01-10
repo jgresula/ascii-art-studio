@@ -714,12 +714,30 @@
             }, 10);
         }
 
+        // Measure actual character cell dimensions
+        function measureCharCell() {
+            const span = document.createElement('span');
+            span.style.fontFamily = "'Courier New', Courier, monospace";
+            span.style.fontSize = '10px';
+            span.style.lineHeight = '1';
+            span.style.letterSpacing = '0';
+            span.style.position = 'absolute';
+            span.style.visibility = 'hidden';
+            span.textContent = '@';
+            document.body.appendChild(span);
+            const rect = span.getBoundingClientRect();
+            document.body.removeChild(span);
+            return { width: rect.width, height: rect.height };
+        }
+
         // Brightness mapping algorithm
         function brightnessMapping(img) {
             const width = parseInt(charsPerRow.value);
-            // Aspect ratio correction: characters are typically ~2x taller than wide
-            const aspectRatio = img.height / img.width;
-            const height = Math.round(width * aspectRatio * 0.5);
+            // Measure actual character aspect ratio for accurate scaling
+            const charCell = measureCharCell();
+            const charAspect = charCell.width / charCell.height;
+            const imgAspect = img.height / img.width;
+            const height = Math.round(width * imgAspect * charAspect);
 
             // Create canvas for pixel data
             const canvas = document.createElement('canvas');
