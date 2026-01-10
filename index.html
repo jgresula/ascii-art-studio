@@ -74,7 +74,7 @@
 
         .main-content {
             display: grid;
-            grid-template-columns: 320px 1fr;
+            grid-template-columns: 350px 1fr;
             gap: 24px;
         }
 
@@ -90,6 +90,8 @@
             border-radius: 12px;
             padding: 20px;
             height: fit-content;
+            max-height: calc(100vh - 140px);
+            overflow-y: auto;
         }
 
         .control-section {
@@ -245,7 +247,8 @@
             text-align: right;
         }
 
-        .setting-row input[type="number"] {
+        .setting-row input[type="number"],
+        .setting-row input[type="text"] {
             width: 100%;
             padding: 10px 12px;
             border: 1px solid var(--border-color);
@@ -267,6 +270,20 @@
             cursor: pointer;
         }
 
+        .inline-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .inline-group input[type="number"] {
+            width: 80px;
+        }
+
+        .inline-group .checkbox-row {
+            flex: 1;
+        }
+
         /* Algorithm Settings */
         .algo-settings {
             background: var(--bg-primary);
@@ -279,6 +296,14 @@
             font-size: 0.85rem;
             margin-bottom: 12px;
             color: var(--text-primary);
+        }
+
+        .algo-settings-panel {
+            display: none;
+        }
+
+        .algo-settings-panel.active {
+            display: block;
         }
 
         /* Copy Buttons */
@@ -327,11 +352,7 @@
         }
 
         #ascii-output {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 10px;
-            line-height: 1;
             white-space: pre;
-            color: var(--ascii-text);
             letter-spacing: 0;
         }
 
@@ -452,11 +473,45 @@
                 </div>
 
                 <div class="control-section">
-                    <h3>Settings</h3>
+                    <h3>Display Settings</h3>
+
+                    <div class="setting-row">
+                        <label for="font-family">Font</label>
+                        <select id="font-family">
+                            <option value="'Courier New', Courier, monospace">Courier New</option>
+                            <option value="'Consolas', monospace">Consolas</option>
+                            <option value="'Monaco', monospace">Monaco</option>
+                            <option value="'Menlo', monospace">Menlo</option>
+                            <option value="'Liberation Mono', monospace">Liberation Mono</option>
+                            <option value="'Lucida Console', monospace">Lucida Console</option>
+                            <option value="monospace">System Monospace</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-row">
+                        <label for="font-size">Font Size</label>
+                        <input type="range" id="font-size" min="4" max="20" value="10">
+                        <div class="setting-value"><span id="font-size-value">10</span>px</div>
+                    </div>
+
+                    <div class="setting-row">
+                        <label>Character Ratio (width/height)</label>
+                        <div class="inline-group">
+                            <input type="number" id="char-ratio" step="0.01" min="0.1" max="2" value="0.5">
+                            <div class="checkbox-row">
+                                <input type="checkbox" id="auto-ratio" checked>
+                                <label for="auto-ratio" style="margin: 0;">Auto</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <h3>Conversion Settings</h3>
 
                     <div class="setting-row">
                         <label for="chars-per-row">Characters per row</label>
-                        <input type="range" id="chars-per-row" min="20" max="200" value="100">
+                        <input type="range" id="chars-per-row" min="20" max="300" value="100">
                         <div class="setting-value"><span id="chars-value">100</span> chars</div>
                     </div>
 
@@ -464,32 +519,127 @@
                         <label for="algorithm">Algorithm</label>
                         <select id="algorithm">
                             <option value="brightness">Brightness Mapping</option>
+                            <option value="edge">Edge Detection</option>
+                            <option value="dithering">Floyd-Steinberg Dithering</option>
+                            <option value="pattern">Block Pattern Matching</option>
+                            <option value="colored">Colored ASCII</option>
+                            <option value="contrast">Contrast Enhanced</option>
                         </select>
                     </div>
 
                     <div class="algo-settings" id="algo-settings">
-                        <h4>Algorithm Settings</h4>
-
-                        <div class="setting-row">
-                            <label for="char-set">Character Set</label>
-                            <select id="char-set">
-                                <option value="standard">Standard (@%#*+=-:. )</option>
-                                <option value="detailed">Detailed (70 chars)</option>
-                                <option value="blocks">Blocks (█▓▒░ )</option>
-                                <option value="simple">Simple (#. )</option>
-                                <option value="custom">Custom</option>
-                            </select>
+                        <!-- Brightness Mapping Settings -->
+                        <div class="algo-settings-panel active" id="settings-brightness">
+                            <h4>Brightness Settings</h4>
+                            <div class="setting-row">
+                                <label for="char-set">Character Set</label>
+                                <select id="char-set">
+                                    <option value="standard">Standard (@%#*+=-:. )</option>
+                                    <option value="detailed">Detailed (70 chars)</option>
+                                    <option value="blocks">Blocks (█▓▒░ )</option>
+                                    <option value="simple">Simple (#. )</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                            </div>
+                            <div class="setting-row" id="custom-chars-row" style="display: none;">
+                                <label for="custom-chars">Custom characters (dark to light)</label>
+                                <input type="text" id="custom-chars" value="@%#*+=-:. " placeholder="Characters dark to light">
+                            </div>
+                            <div class="setting-row">
+                                <div class="checkbox-row">
+                                    <input type="checkbox" id="invert-chars">
+                                    <label for="invert-chars" style="margin: 0;">Invert brightness</label>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="setting-row" id="custom-chars-row" style="display: none;">
-                            <label for="custom-chars">Custom characters (dark to light)</label>
-                            <input type="text" id="custom-chars" value="@%#*+=-:. " placeholder="Characters dark to light">
+                        <!-- Edge Detection Settings -->
+                        <div class="algo-settings-panel" id="settings-edge">
+                            <h4>Edge Detection Settings</h4>
+                            <div class="setting-row">
+                                <label for="edge-threshold">Edge Threshold</label>
+                                <input type="range" id="edge-threshold" min="10" max="200" value="50">
+                                <div class="setting-value"><span id="edge-threshold-value">50</span></div>
+                            </div>
+                            <div class="setting-row">
+                                <div class="checkbox-row">
+                                    <input type="checkbox" id="edge-invert">
+                                    <label for="edge-invert" style="margin: 0;">Invert (light edges)</label>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="setting-row">
-                            <div class="checkbox-row">
-                                <input type="checkbox" id="invert-chars">
-                                <label for="invert-chars" style="margin: 0;">Invert brightness</label>
+                        <!-- Dithering Settings -->
+                        <div class="algo-settings-panel" id="settings-dithering">
+                            <h4>Dithering Settings</h4>
+                            <div class="setting-row">
+                                <label for="dither-chars">Characters (dark to light)</label>
+                                <input type="text" id="dither-chars" value="@#%*+=-:. " placeholder="Characters dark to light">
+                            </div>
+                            <div class="setting-row">
+                                <label for="dither-strength">Error Diffusion Strength</label>
+                                <input type="range" id="dither-strength" min="0" max="100" value="100">
+                                <div class="setting-value"><span id="dither-strength-value">100</span>%</div>
+                            </div>
+                        </div>
+
+                        <!-- Pattern Matching Settings -->
+                        <div class="algo-settings-panel" id="settings-pattern">
+                            <h4>Pattern Matching Settings</h4>
+                            <div class="setting-row">
+                                <label for="pattern-block-size">Block Size</label>
+                                <select id="pattern-block-size">
+                                    <option value="2">2x2</option>
+                                    <option value="3" selected>3x3</option>
+                                    <option value="4">4x4</option>
+                                </select>
+                            </div>
+                            <div class="setting-row">
+                                <label for="pattern-chars">Character Pool</label>
+                                <input type="text" id="pattern-chars" value="@#$%&8BMW*oahkbdpqwmZO0QCJYXzcvunxrjft/\|()1{}[]?-_+~<>i!lI;:,. " placeholder="Characters to use">
+                            </div>
+                        </div>
+
+                        <!-- Colored ASCII Settings -->
+                        <div class="algo-settings-panel" id="settings-colored">
+                            <h4>Colored ASCII Settings</h4>
+                            <div class="setting-row">
+                                <label for="colored-char-set">Character Set</label>
+                                <select id="colored-char-set">
+                                    <option value="standard">Standard (@%#*+=-:. )</option>
+                                    <option value="detailed">Detailed (70 chars)</option>
+                                    <option value="blocks">Blocks (█▓▒░ )</option>
+                                    <option value="single">Single Character (█)</option>
+                                </select>
+                            </div>
+                            <div class="setting-row">
+                                <label for="color-saturation">Saturation</label>
+                                <input type="range" id="color-saturation" min="0" max="200" value="100">
+                                <div class="setting-value"><span id="color-saturation-value">100</span>%</div>
+                            </div>
+                        </div>
+
+                        <!-- Contrast Enhanced Settings -->
+                        <div class="algo-settings-panel" id="settings-contrast">
+                            <h4>Contrast Enhanced Settings</h4>
+                            <div class="setting-row">
+                                <label for="contrast-char-set">Character Set</label>
+                                <select id="contrast-char-set">
+                                    <option value="standard">Standard (@%#*+=-:. )</option>
+                                    <option value="detailed">Detailed (70 chars)</option>
+                                    <option value="blocks">Blocks (█▓▒░ )</option>
+                                </select>
+                            </div>
+                            <div class="setting-row">
+                                <label for="contrast-amount">Contrast Amount</label>
+                                <input type="range" id="contrast-amount" min="100" max="300" value="150">
+                                <div class="setting-value"><span id="contrast-amount-value">150</span>%</div>
+                            </div>
+                            <div class="setting-row">
+                                <div class="checkbox-row">
+                                    <input type="checkbox" id="contrast-histogram" checked>
+                                    <label for="contrast-histogram" style="margin: 0;">Histogram equalization</label>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -528,17 +678,29 @@
     <div class="toast" id="toast"></div>
 
     <script>
-        // Character sets for brightness mapping
+        // Character sets
         const CHAR_SETS = {
             standard: '@%#*+=-:. ',
             detailed: '$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,"^`\'. ',
             blocks: '█▓▒░ ',
-            simple: '#. '
+            simple: '#. ',
+            single: '█'
+        };
+
+        // Edge detection characters by direction
+        const EDGE_CHARS = {
+            horizontal: '-',
+            vertical: '|',
+            diag1: '/',
+            diag2: '\\',
+            corner: '+',
+            none: ' '
         };
 
         // State
         let currentImage = null;
-        let isProcessing = false;
+        let cachedCharRatio = null;
+        let lastColoredHtml = '';
 
         // DOM Elements
         const dropZone = document.getElementById('drop-zone');
@@ -551,10 +713,6 @@
         const charsPerRow = document.getElementById('chars-per-row');
         const charsValue = document.getElementById('chars-value');
         const algorithm = document.getElementById('algorithm');
-        const charSet = document.getElementById('char-set');
-        const customCharsRow = document.getElementById('custom-chars-row');
-        const customChars = document.getElementById('custom-chars');
-        const invertChars = document.getElementById('invert-chars');
         const asciiOutput = document.getElementById('ascii-output');
         const outputInfo = document.getElementById('output-info');
         const placeholder = document.getElementById('placeholder');
@@ -563,9 +721,49 @@
         const copyHtmlBtn = document.getElementById('copy-html-btn');
         const toast = document.getElementById('toast');
 
+        // Display settings
+        const fontFamily = document.getElementById('font-family');
+        const fontSize = document.getElementById('font-size');
+        const fontSizeValue = document.getElementById('font-size-value');
+        const charRatio = document.getElementById('char-ratio');
+        const autoRatio = document.getElementById('auto-ratio');
+
+        // Brightness settings
+        const charSet = document.getElementById('char-set');
+        const customCharsRow = document.getElementById('custom-chars-row');
+        const customChars = document.getElementById('custom-chars');
+        const invertChars = document.getElementById('invert-chars');
+
+        // Edge settings
+        const edgeThreshold = document.getElementById('edge-threshold');
+        const edgeThresholdValue = document.getElementById('edge-threshold-value');
+        const edgeInvert = document.getElementById('edge-invert');
+
+        // Dithering settings
+        const ditherChars = document.getElementById('dither-chars');
+        const ditherStrength = document.getElementById('dither-strength');
+        const ditherStrengthValue = document.getElementById('dither-strength-value');
+
+        // Pattern settings
+        const patternBlockSize = document.getElementById('pattern-block-size');
+        const patternChars = document.getElementById('pattern-chars');
+
+        // Colored settings
+        const coloredCharSet = document.getElementById('colored-char-set');
+        const colorSaturation = document.getElementById('color-saturation');
+        const colorSaturationValue = document.getElementById('color-saturation-value');
+
+        // Contrast settings
+        const contrastCharSet = document.getElementById('contrast-char-set');
+        const contrastAmount = document.getElementById('contrast-amount');
+        const contrastAmountValue = document.getElementById('contrast-amount-value');
+        const contrastHistogram = document.getElementById('contrast-histogram');
+
         // Initialize
         function init() {
             setupEventListeners();
+            updateDisplaySettings();
+            updateCharRatio();
         }
 
         function setupEventListeners() {
@@ -585,32 +783,111 @@
             // Default image
             loadDefaultBtn.addEventListener('click', loadDefaultImage);
 
-            // Settings
+            // Display settings
+            fontFamily.addEventListener('change', () => {
+                updateDisplaySettings();
+                updateCharRatio();
+                if (currentImage) convertToAscii();
+            });
+
+            fontSize.addEventListener('input', () => {
+                fontSizeValue.textContent = fontSize.value;
+                updateDisplaySettings();
+                updateCharRatio();
+                if (currentImage) convertToAscii();
+            });
+
+            charRatio.addEventListener('input', () => {
+                if (!autoRatio.checked && currentImage) convertToAscii();
+            });
+
+            autoRatio.addEventListener('change', () => {
+                charRatio.disabled = autoRatio.checked;
+                if (autoRatio.checked) {
+                    updateCharRatio();
+                    if (currentImage) convertToAscii();
+                }
+            });
+
+            // Conversion settings
             charsPerRow.addEventListener('input', () => {
                 charsValue.textContent = charsPerRow.value;
                 if (currentImage) convertToAscii();
             });
 
             algorithm.addEventListener('change', () => {
+                updateAlgorithmPanel();
                 if (currentImage) convertToAscii();
             });
 
+            // Brightness settings
             charSet.addEventListener('change', () => {
                 customCharsRow.style.display = charSet.value === 'custom' ? 'block' : 'none';
                 if (currentImage) convertToAscii();
             });
+            customChars.addEventListener('input', () => { if (currentImage) convertToAscii(); });
+            invertChars.addEventListener('change', () => { if (currentImage) convertToAscii(); });
 
-            customChars.addEventListener('input', () => {
+            // Edge settings
+            edgeThreshold.addEventListener('input', () => {
+                edgeThresholdValue.textContent = edgeThreshold.value;
+                if (currentImage) convertToAscii();
+            });
+            edgeInvert.addEventListener('change', () => { if (currentImage) convertToAscii(); });
+
+            // Dithering settings
+            ditherChars.addEventListener('input', () => { if (currentImage) convertToAscii(); });
+            ditherStrength.addEventListener('input', () => {
+                ditherStrengthValue.textContent = ditherStrength.value;
                 if (currentImage) convertToAscii();
             });
 
-            invertChars.addEventListener('change', () => {
+            // Pattern settings
+            patternBlockSize.addEventListener('change', () => { if (currentImage) convertToAscii(); });
+            patternChars.addEventListener('input', () => { if (currentImage) convertToAscii(); });
+
+            // Colored settings
+            coloredCharSet.addEventListener('change', () => { if (currentImage) convertToAscii(); });
+            colorSaturation.addEventListener('input', () => {
+                colorSaturationValue.textContent = colorSaturation.value;
                 if (currentImage) convertToAscii();
             });
+
+            // Contrast settings
+            contrastCharSet.addEventListener('change', () => { if (currentImage) convertToAscii(); });
+            contrastAmount.addEventListener('input', () => {
+                contrastAmountValue.textContent = contrastAmount.value;
+                if (currentImage) convertToAscii();
+            });
+            contrastHistogram.addEventListener('change', () => { if (currentImage) convertToAscii(); });
 
             // Copy buttons
             copyTextBtn.addEventListener('click', copyAsText);
             copyHtmlBtn.addEventListener('click', copyAsHtml);
+        }
+
+        function updateDisplaySettings() {
+            asciiOutput.style.fontFamily = fontFamily.value;
+            asciiOutput.style.fontSize = fontSize.value + 'px';
+            asciiOutput.style.lineHeight = '1';
+        }
+
+        function updateCharRatio() {
+            if (!autoRatio.checked) return;
+
+            const measured = measureCharCell();
+            cachedCharRatio = measured.width / measured.height;
+            charRatio.value = cachedCharRatio.toFixed(3);
+        }
+
+        function updateAlgorithmPanel() {
+            document.querySelectorAll('.algo-settings-panel').forEach(panel => {
+                panel.classList.remove('active');
+            });
+            const activePanel = document.getElementById('settings-' + algorithm.value);
+            if (activePanel) {
+                activePanel.classList.add('active');
+            }
         }
 
         // Drag and drop handlers
@@ -695,30 +972,13 @@
 
         function showLoading(show) {
             loading.classList.toggle('show', show);
-            isProcessing = show;
         }
 
-        // ASCII conversion
-        function convertToAscii() {
-            if (!currentImage) return;
-
-            showLoading(true);
-            asciiOutput.textContent = '';
-
-            // Use setTimeout to allow UI to update
-            setTimeout(() => {
-                const result = brightnessMapping(currentImage);
-                asciiOutput.textContent = result.ascii;
-                outputInfo.textContent = `${result.width} × ${result.height} chars`;
-                showLoading(false);
-            }, 10);
-        }
-
-        // Measure actual character cell dimensions
+        // Measure character cell dimensions
         function measureCharCell() {
             const span = document.createElement('span');
-            span.style.fontFamily = "'Courier New', Courier, monospace";
-            span.style.fontSize = '10px';
+            span.style.fontFamily = fontFamily.value;
+            span.style.fontSize = fontSize.value + 'px';
             span.style.lineHeight = '1';
             span.style.letterSpacing = '0';
             span.style.position = 'absolute';
@@ -730,47 +990,105 @@
             return { width: rect.width, height: rect.height };
         }
 
-        // Brightness mapping algorithm
-        function brightnessMapping(img) {
-            const width = parseInt(charsPerRow.value);
-            // Measure actual character aspect ratio for accurate scaling
-            const charCell = measureCharCell();
-            const charAspect = charCell.width / charCell.height;
-            const imgAspect = img.height / img.width;
-            const height = Math.round(width * imgAspect * charAspect);
+        function getCharRatio() {
+            if (autoRatio.checked) {
+                return cachedCharRatio || 0.5;
+            }
+            return parseFloat(charRatio.value) || 0.5;
+        }
 
-            // Create canvas for pixel data
+        // ASCII conversion dispatcher
+        function convertToAscii() {
+            if (!currentImage) return;
+
+            showLoading(true);
+            asciiOutput.textContent = '';
+            asciiOutput.innerHTML = '';
+            lastColoredHtml = '';
+
+            setTimeout(() => {
+                let result;
+                const algo = algorithm.value;
+
+                switch (algo) {
+                    case 'brightness':
+                        result = brightnessMapping(currentImage);
+                        asciiOutput.style.color = 'var(--ascii-text)';
+                        asciiOutput.textContent = result.ascii;
+                        break;
+                    case 'edge':
+                        result = edgeDetection(currentImage);
+                        asciiOutput.style.color = 'var(--ascii-text)';
+                        asciiOutput.textContent = result.ascii;
+                        break;
+                    case 'dithering':
+                        result = floydSteinbergDithering(currentImage);
+                        asciiOutput.style.color = 'var(--ascii-text)';
+                        asciiOutput.textContent = result.ascii;
+                        break;
+                    case 'pattern':
+                        result = blockPatternMatching(currentImage);
+                        asciiOutput.style.color = 'var(--ascii-text)';
+                        asciiOutput.textContent = result.ascii;
+                        break;
+                    case 'colored':
+                        result = coloredAscii(currentImage);
+                        asciiOutput.innerHTML = result.html;
+                        lastColoredHtml = result.html;
+                        break;
+                    case 'contrast':
+                        result = contrastEnhanced(currentImage);
+                        asciiOutput.style.color = 'var(--ascii-text)';
+                        asciiOutput.textContent = result.ascii;
+                        break;
+                    default:
+                        result = brightnessMapping(currentImage);
+                        asciiOutput.textContent = result.ascii;
+                }
+
+                outputInfo.textContent = `${result.width} × ${result.height} chars`;
+                showLoading(false);
+            }, 10);
+        }
+
+        // Get scaled image data
+        function getScaledImageData(img, width) {
+            const ratio = getCharRatio();
+            const imgAspect = img.height / img.width;
+            const height = Math.max(1, Math.round(width * imgAspect * ratio));
+
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             canvas.width = width;
             canvas.height = height;
-
-            // Draw scaled image
             ctx.drawImage(img, 0, 0, width, height);
 
-            // Get pixel data
-            const imageData = ctx.getImageData(0, 0, width, height);
+            return {
+                imageData: ctx.getImageData(0, 0, width, height),
+                width,
+                height
+            };
+        }
+
+        // Algorithm: Brightness Mapping
+        function brightnessMapping(img) {
+            const width = parseInt(charsPerRow.value);
+            const { imageData, height } = getScaledImageData(img, width);
             const pixels = imageData.data;
 
-            // Get character set
-            let chars = getCharacterSet();
+            let chars = charSet.value === 'custom'
+                ? (customChars.value || CHAR_SETS.standard)
+                : CHAR_SETS[charSet.value];
+
             if (invertChars.checked) {
                 chars = chars.split('').reverse().join('');
             }
 
-            // Convert to ASCII
             let ascii = '';
             for (let y = 0; y < height; y++) {
                 for (let x = 0; x < width; x++) {
                     const i = (y * width + x) * 4;
-                    const r = pixels[i];
-                    const g = pixels[i + 1];
-                    const b = pixels[i + 2];
-
-                    // Calculate brightness (luminance formula)
-                    const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-
-                    // Map brightness to character (evenly distributed)
+                    const brightness = getBrightness(pixels[i], pixels[i + 1], pixels[i + 2]);
                     const charIndex = Math.min(chars.length - 1, Math.floor(brightness * chars.length));
                     ascii += chars[charIndex];
                 }
@@ -780,11 +1098,326 @@
             return { ascii, width, height };
         }
 
-        function getCharacterSet() {
-            if (charSet.value === 'custom') {
-                return customChars.value || CHAR_SETS.standard;
+        // Algorithm: Edge Detection (Sobel)
+        function edgeDetection(img) {
+            const width = parseInt(charsPerRow.value);
+            const { imageData, height } = getScaledImageData(img, width);
+            const pixels = imageData.data;
+            const threshold = parseInt(edgeThreshold.value);
+            const invert = edgeInvert.checked;
+
+            // Convert to grayscale array
+            const gray = new Float32Array(width * height);
+            for (let i = 0; i < width * height; i++) {
+                const pi = i * 4;
+                gray[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]) * 255;
             }
-            return CHAR_SETS[charSet.value];
+
+            // Sobel kernels
+            const sobelX = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]];
+            const sobelY = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]];
+
+            let ascii = '';
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    let gx = 0, gy = 0;
+
+                    for (let ky = -1; ky <= 1; ky++) {
+                        for (let kx = -1; kx <= 1; kx++) {
+                            const px = Math.min(width - 1, Math.max(0, x + kx));
+                            const py = Math.min(height - 1, Math.max(0, y + ky));
+                            const val = gray[py * width + px];
+                            gx += val * sobelX[ky + 1][kx + 1];
+                            gy += val * sobelY[ky + 1][kx + 1];
+                        }
+                    }
+
+                    const magnitude = Math.sqrt(gx * gx + gy * gy);
+
+                    if (magnitude < threshold) {
+                        ascii += invert ? '#' : ' ';
+                    } else {
+                        // Determine edge direction
+                        const angle = Math.atan2(gy, gx) * 180 / Math.PI;
+                        let char;
+                        if (angle >= -22.5 && angle < 22.5 || angle >= 157.5 || angle < -157.5) {
+                            char = '|'; // Vertical edge
+                        } else if (angle >= 22.5 && angle < 67.5 || angle >= -157.5 && angle < -112.5) {
+                            char = '/';
+                        } else if (angle >= 67.5 && angle < 112.5 || angle >= -112.5 && angle < -67.5) {
+                            char = '-'; // Horizontal edge
+                        } else {
+                            char = '\\';
+                        }
+                        ascii += invert ? ' ' : char;
+                    }
+                }
+                ascii += '\n';
+            }
+
+            return { ascii, width, height };
+        }
+
+        // Algorithm: Floyd-Steinberg Dithering
+        function floydSteinbergDithering(img) {
+            const width = parseInt(charsPerRow.value);
+            const { imageData, height } = getScaledImageData(img, width);
+            const pixels = imageData.data;
+            const chars = ditherChars.value || '@#%*+=-:. ';
+            const strength = parseInt(ditherStrength.value) / 100;
+
+            // Create brightness array
+            const brightness = new Float32Array(width * height);
+            for (let i = 0; i < width * height; i++) {
+                const pi = i * 4;
+                brightness[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
+            }
+
+            // Floyd-Steinberg dithering
+            const levels = chars.length;
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const i = y * width + x;
+                    const oldVal = brightness[i];
+                    const newVal = Math.round(oldVal * (levels - 1)) / (levels - 1);
+                    brightness[i] = newVal;
+                    const error = (oldVal - newVal) * strength;
+
+                    if (x + 1 < width) brightness[i + 1] += error * 7 / 16;
+                    if (y + 1 < height) {
+                        if (x > 0) brightness[i + width - 1] += error * 3 / 16;
+                        brightness[i + width] += error * 5 / 16;
+                        if (x + 1 < width) brightness[i + width + 1] += error * 1 / 16;
+                    }
+                }
+            }
+
+            // Convert to ASCII
+            let ascii = '';
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const val = Math.max(0, Math.min(1, brightness[y * width + x]));
+                    const charIndex = Math.min(chars.length - 1, Math.floor(val * chars.length));
+                    ascii += chars[charIndex];
+                }
+                ascii += '\n';
+            }
+
+            return { ascii, width, height };
+        }
+
+        // Algorithm: Block Pattern Matching
+        function blockPatternMatching(img) {
+            const targetWidth = parseInt(charsPerRow.value);
+            const blockSize = parseInt(patternBlockSize.value);
+            const chars = patternChars.value || '@#$%&*oahkbdpqwm. ';
+
+            // Pre-compute character patterns
+            const charPatterns = computeCharacterPatterns(chars, blockSize);
+
+            // Get image at higher resolution for block sampling
+            const sampleWidth = targetWidth * blockSize;
+            const ratio = getCharRatio();
+            const imgAspect = img.height / img.width;
+            const sampleHeight = Math.max(blockSize, Math.round(sampleWidth * imgAspect * ratio));
+            const outputHeight = Math.floor(sampleHeight / blockSize);
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = sampleWidth;
+            canvas.height = sampleHeight;
+            ctx.drawImage(img, 0, 0, sampleWidth, sampleHeight);
+            const imageData = ctx.getImageData(0, 0, sampleWidth, sampleHeight);
+            const pixels = imageData.data;
+
+            let ascii = '';
+            for (let by = 0; by < outputHeight; by++) {
+                for (let bx = 0; bx < targetWidth; bx++) {
+                    // Extract block brightness pattern
+                    const blockPattern = [];
+                    for (let y = 0; y < blockSize; y++) {
+                        for (let x = 0; x < blockSize; x++) {
+                            const px = bx * blockSize + x;
+                            const py = by * blockSize + y;
+                            if (px < sampleWidth && py < sampleHeight) {
+                                const i = (py * sampleWidth + px) * 4;
+                                blockPattern.push(getBrightness(pixels[i], pixels[i + 1], pixels[i + 2]));
+                            } else {
+                                blockPattern.push(1);
+                            }
+                        }
+                    }
+
+                    // Find best matching character
+                    let bestChar = ' ';
+                    let bestScore = Infinity;
+                    for (const [char, pattern] of charPatterns) {
+                        let score = 0;
+                        for (let i = 0; i < blockPattern.length; i++) {
+                            const diff = blockPattern[i] - pattern[i];
+                            score += diff * diff;
+                        }
+                        if (score < bestScore) {
+                            bestScore = score;
+                            bestChar = char;
+                        }
+                    }
+                    ascii += bestChar;
+                }
+                ascii += '\n';
+            }
+
+            return { ascii, width: targetWidth, height: outputHeight };
+        }
+
+        function computeCharacterPatterns(chars, blockSize) {
+            const patterns = new Map();
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = blockSize;
+            canvas.height = blockSize;
+
+            ctx.fillStyle = 'white';
+            ctx.font = `${blockSize}px ${fontFamily.value}`;
+            ctx.textBaseline = 'top';
+
+            for (const char of chars) {
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, blockSize, blockSize);
+                ctx.fillStyle = 'black';
+                ctx.fillText(char, 0, 0);
+
+                const imageData = ctx.getImageData(0, 0, blockSize, blockSize);
+                const pattern = [];
+                for (let i = 0; i < imageData.data.length; i += 4) {
+                    pattern.push(imageData.data[i] / 255); // Use red channel (grayscale)
+                }
+                patterns.set(char, pattern);
+            }
+
+            return patterns;
+        }
+
+        // Algorithm: Colored ASCII
+        function coloredAscii(img) {
+            const width = parseInt(charsPerRow.value);
+            const { imageData, height } = getScaledImageData(img, width);
+            const pixels = imageData.data;
+            const saturation = parseInt(colorSaturation.value) / 100;
+
+            let chars = CHAR_SETS[coloredCharSet.value] || CHAR_SETS.standard;
+
+            let html = '';
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const i = (y * width + x) * 4;
+                    let r = pixels[i];
+                    let g = pixels[i + 1];
+                    let b = pixels[i + 2];
+
+                    // Apply saturation
+                    if (saturation !== 1) {
+                        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                        r = Math.round(gray + saturation * (r - gray));
+                        g = Math.round(gray + saturation * (g - gray));
+                        b = Math.round(gray + saturation * (b - gray));
+                        r = Math.max(0, Math.min(255, r));
+                        g = Math.max(0, Math.min(255, g));
+                        b = Math.max(0, Math.min(255, b));
+                    }
+
+                    const brightness = getBrightness(r, g, b);
+                    const charIndex = Math.min(chars.length - 1, Math.floor(brightness * chars.length));
+                    const char = chars[charIndex];
+                    const escaped = escapeHtml(char);
+
+                    html += `<span style="color:rgb(${r},${g},${b})">${escaped}</span>`;
+                }
+                html += '\n';
+            }
+
+            return { html, width, height, ascii: '' };
+        }
+
+        // Algorithm: Contrast Enhanced
+        function contrastEnhanced(img) {
+            const width = parseInt(charsPerRow.value);
+            const { imageData, height } = getScaledImageData(img, width);
+            const pixels = imageData.data;
+            const contrast = parseInt(contrastAmount.value) / 100;
+            const useHistogram = contrastHistogram.checked;
+
+            let chars = CHAR_SETS[contrastCharSet.value] || CHAR_SETS.standard;
+
+            // Calculate brightness values
+            const brightnessValues = new Float32Array(width * height);
+            let minB = 1, maxB = 0;
+            for (let i = 0; i < width * height; i++) {
+                const pi = i * 4;
+                const b = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
+                brightnessValues[i] = b;
+                minB = Math.min(minB, b);
+                maxB = Math.max(maxB, b);
+            }
+
+            // Histogram equalization
+            if (useHistogram) {
+                const histogram = new Array(256).fill(0);
+                for (let i = 0; i < brightnessValues.length; i++) {
+                    const bin = Math.floor(brightnessValues[i] * 255);
+                    histogram[bin]++;
+                }
+
+                const cdf = new Array(256);
+                cdf[0] = histogram[0];
+                for (let i = 1; i < 256; i++) {
+                    cdf[i] = cdf[i - 1] + histogram[i];
+                }
+
+                const cdfMin = cdf.find(v => v > 0);
+                const total = width * height;
+                for (let i = 0; i < brightnessValues.length; i++) {
+                    const bin = Math.floor(brightnessValues[i] * 255);
+                    brightnessValues[i] = (cdf[bin] - cdfMin) / (total - cdfMin);
+                }
+            } else {
+                // Simple contrast stretch
+                const range = maxB - minB || 1;
+                for (let i = 0; i < brightnessValues.length; i++) {
+                    brightnessValues[i] = (brightnessValues[i] - minB) / range;
+                }
+            }
+
+            // Apply contrast adjustment
+            for (let i = 0; i < brightnessValues.length; i++) {
+                let b = brightnessValues[i];
+                b = (b - 0.5) * contrast + 0.5;
+                brightnessValues[i] = Math.max(0, Math.min(1, b));
+            }
+
+            // Convert to ASCII
+            let ascii = '';
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const brightness = brightnessValues[y * width + x];
+                    const charIndex = Math.min(chars.length - 1, Math.floor(brightness * chars.length));
+                    ascii += chars[charIndex];
+                }
+                ascii += '\n';
+            }
+
+            return { ascii, width, height };
+        }
+
+        // Utility functions
+        function getBrightness(r, g, b) {
+            return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         // Copy functions
@@ -803,35 +1436,34 @@
         }
 
         function copyAsHtml() {
-            const text = asciiOutput.textContent;
-            if (!text) {
-                showToast('Nothing to copy');
-                return;
-            }
+            const isColored = algorithm.value === 'colored';
+            let html;
 
-            const html = `<pre style="font-family: 'Courier New', Courier, monospace; font-size: 10px; line-height: 1; letter-spacing: 0;">${escapeHtml(text)}</pre>`;
+            if (isColored && lastColoredHtml) {
+                html = `<pre style="font-family: ${fontFamily.value}; font-size: ${fontSize.value}px; line-height: 1; letter-spacing: 0; background: #000;">${lastColoredHtml}</pre>`;
+            } else {
+                const text = asciiOutput.textContent;
+                if (!text) {
+                    showToast('Nothing to copy');
+                    return;
+                }
+                html = `<pre style="font-family: ${fontFamily.value}; font-size: ${fontSize.value}px; line-height: 1; letter-spacing: 0;">${escapeHtml(text)}</pre>`;
+            }
 
             navigator.clipboard.write([
                 new ClipboardItem({
                     'text/html': new Blob([html], { type: 'text/html' }),
-                    'text/plain': new Blob([text], { type: 'text/plain' })
+                    'text/plain': new Blob([asciiOutput.textContent || html], { type: 'text/plain' })
                 })
             ]).then(() => {
                 showToast('Copied as HTML!');
             }).catch(() => {
-                // Fallback to text copy
                 navigator.clipboard.writeText(html).then(() => {
                     showToast('Copied HTML code!');
                 }).catch(() => {
                     showToast('Failed to copy');
                 });
             });
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
         }
 
         // Toast notification
