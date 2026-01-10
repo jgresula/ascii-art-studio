@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image to ASCII Converter</title>
+    <style>
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f5;
+            --bg-tertiary: #e8e8e8;
+            --text-primary: #1a1a1a;
+            --text-secondary: #666666;
+            --border-color: #ddd;
+            --accent-color: #4a90d9;
+            --accent-hover: #357abd;
+            --success-color: #28a745;
+            --drop-zone-bg: #f0f7ff;
+            --drop-zone-border: #4a90d9;
+            --ascii-bg: #ffffff;
+            --ascii-text: #000000;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-primary: #1a1a1a;
+                --bg-secondary: #2d2d2d;
+                --bg-tertiary: #3d3d3d;
+                --text-primary: #f0f0f0;
+                --text-secondary: #a0a0a0;
+                --border-color: #444;
+                --accent-color: #5ba0e8;
+                --accent-hover: #4a90d9;
+                --success-color: #34c759;
+                --drop-zone-bg: #1e3a5f;
+                --drop-zone-border: #5ba0e8;
+                --ascii-bg: #0d0d0d;
+                --ascii-text: #f0f0f0;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            margin-bottom: 8px;
+        }
+
+        header p {
+            color: var(--text-secondary);
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Sidebar / Controls */
+        .controls {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 20px;
+            height: fit-content;
+        }
+
+        .control-section {
+            margin-bottom: 24px;
+        }
+
+        .control-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-section h3 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        /* Drop Zone */
+        .drop-zone {
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 24px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: var(--bg-primary);
+        }
+
+        .drop-zone:hover,
+        .drop-zone.drag-over {
+            border-color: var(--drop-zone-border);
+            background: var(--drop-zone-bg);
+        }
+
+        .drop-zone-icon {
+            font-size: 2rem;
+            margin-bottom: 8px;
+        }
+
+        .drop-zone-text {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .drop-zone-text strong {
+            color: var(--accent-color);
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        /* URL Input */
+        .url-input-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .url-input-group input {
+            flex: 1;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .url-input-group input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border-color);
+        }
+
+        .btn-success {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .btn-block {
+            width: 100%;
+        }
+
+        /* Settings */
+        .setting-row {
+            margin-bottom: 16px;
+        }
+
+        .setting-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .setting-row label {
+            display: block;
+            font-size: 0.9rem;
+            margin-bottom: 6px;
+            color: var(--text-primary);
+        }
+
+        .setting-row input[type="range"] {
+            width: 100%;
+            margin-bottom: 4px;
+        }
+
+        .setting-row select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+
+        .setting-row select:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .setting-value {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-align: right;
+        }
+
+        .setting-row input[type="number"] {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        /* Algorithm Settings */
+        .algo-settings {
+            background: var(--bg-primary);
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 12px;
+        }
+
+        .algo-settings h4 {
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        /* Copy Buttons */
+        .copy-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .copy-buttons .btn {
+            flex: 1;
+        }
+
+        /* Output Area */
+        .output-area {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 20px;
+            min-height: 500px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .output-header h2 {
+            font-size: 1.1rem;
+        }
+
+        .output-info {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .ascii-container {
+            flex: 1;
+            background: var(--ascii-bg);
+            border-radius: 8px;
+            padding: 16px;
+            overflow: auto;
+            position: relative;
+        }
+
+        #ascii-output {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 10px;
+            line-height: 1;
+            white-space: pre;
+            color: var(--ascii-text);
+            letter-spacing: 0;
+        }
+
+        .placeholder-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .placeholder-message .icon {
+            font-size: 3rem;
+            margin-bottom: 12px;
+        }
+
+        /* Preview */
+        .preview-section {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .preview-section h4 {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        #image-preview {
+            max-width: 100%;
+            max-height: 150px;
+            border-radius: 6px;
+            display: none;
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--success-color);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Loading */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 12px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Image to ASCII Converter</h1>
+            <p>Transform your images into ASCII art</p>
+        </header>
+
+        <div class="main-content">
+            <aside class="controls">
+                <div class="control-section">
+                    <h3>Image Source</h3>
+                    <div class="drop-zone" id="drop-zone">
+                        <div class="drop-zone-icon">📁</div>
+                        <div class="drop-zone-text">
+                            <strong>Click to upload</strong> or drag & drop
+                        </div>
+                    </div>
+                    <input type="file" id="file-input" accept="image/*">
+
+                    <div class="url-input-group">
+                        <input type="text" id="url-input" placeholder="Or paste image URL...">
+                        <button class="btn btn-primary" id="load-url-btn">Load</button>
+                    </div>
+
+                    <button class="btn btn-secondary btn-block" id="load-default-btn" style="margin-top: 12px;">
+                        Load Default Image
+                    </button>
+
+                    <div class="preview-section">
+                        <h4>Preview</h4>
+                        <img id="image-preview" alt="Preview">
+                        <div id="no-preview" style="font-size: 0.85rem; color: var(--text-secondary);">No image loaded</div>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <h3>Settings</h3>
+
+                    <div class="setting-row">
+                        <label for="chars-per-row">Characters per row</label>
+                        <input type="range" id="chars-per-row" min="20" max="200" value="100">
+                        <div class="setting-value"><span id="chars-value">100</span> chars</div>
+                    </div>
+
+                    <div class="setting-row">
+                        <label for="algorithm">Algorithm</label>
+                        <select id="algorithm">
+                            <option value="brightness">Brightness Mapping</option>
+                        </select>
+                    </div>
+
+                    <div class="algo-settings" id="algo-settings">
+                        <h4>Algorithm Settings</h4>
+
+                        <div class="setting-row">
+                            <label for="char-set">Character Set</label>
+                            <select id="char-set">
+                                <option value="standard">Standard (@%#*+=-:. )</option>
+                                <option value="detailed">Detailed (70 chars)</option>
+                                <option value="blocks">Blocks (█▓▒░ )</option>
+                                <option value="simple">Simple (#. )</option>
+                                <option value="custom">Custom</option>
+                            </select>
+                        </div>
+
+                        <div class="setting-row" id="custom-chars-row" style="display: none;">
+                            <label for="custom-chars">Custom characters (dark to light)</label>
+                            <input type="text" id="custom-chars" value="@%#*+=-:. " placeholder="Characters dark to light">
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="checkbox-row">
+                                <input type="checkbox" id="invert-chars">
+                                <label for="invert-chars" style="margin: 0;">Invert brightness</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <h3>Export</h3>
+                    <div class="copy-buttons">
+                        <button class="btn btn-secondary" id="copy-text-btn">Copy Text</button>
+                        <button class="btn btn-secondary" id="copy-html-btn">Copy HTML</button>
+                    </div>
+                </div>
+            </aside>
+
+            <main class="output-area">
+                <div class="output-header">
+                    <h2>ASCII Output</h2>
+                    <span class="output-info" id="output-info"></span>
+                </div>
+
+                <div class="ascii-container">
+                    <div class="loading" id="loading">
+                        <div class="spinner"></div>
+                        <div>Converting...</div>
+                    </div>
+                    <div class="placeholder-message" id="placeholder">
+                        <div class="icon">🖼️</div>
+                        <div>Upload an image or load the default to begin</div>
+                    </div>
+                    <div id="ascii-output"></div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // Character sets for brightness mapping
+        const CHAR_SETS = {
+            standard: '@%#*+=-:. ',
+            detailed: '$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,"^`\'. ',
+            blocks: '█▓▒░ ',
+            simple: '#. '
+        };
+
+        // State
+        let currentImage = null;
+        let isProcessing = false;
+
+        // DOM Elements
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const urlInput = document.getElementById('url-input');
+        const loadUrlBtn = document.getElementById('load-url-btn');
+        const loadDefaultBtn = document.getElementById('load-default-btn');
+        const imagePreview = document.getElementById('image-preview');
+        const noPreview = document.getElementById('no-preview');
+        const charsPerRow = document.getElementById('chars-per-row');
+        const charsValue = document.getElementById('chars-value');
+        const algorithm = document.getElementById('algorithm');
+        const charSet = document.getElementById('char-set');
+        const customCharsRow = document.getElementById('custom-chars-row');
+        const customChars = document.getElementById('custom-chars');
+        const invertChars = document.getElementById('invert-chars');
+        const asciiOutput = document.getElementById('ascii-output');
+        const outputInfo = document.getElementById('output-info');
+        const placeholder = document.getElementById('placeholder');
+        const loading = document.getElementById('loading');
+        const copyTextBtn = document.getElementById('copy-text-btn');
+        const copyHtmlBtn = document.getElementById('copy-html-btn');
+        const toast = document.getElementById('toast');
+
+        // Initialize
+        function init() {
+            setupEventListeners();
+        }
+
+        function setupEventListeners() {
+            // Drop zone
+            dropZone.addEventListener('click', () => fileInput.click());
+            dropZone.addEventListener('dragover', handleDragOver);
+            dropZone.addEventListener('dragleave', handleDragLeave);
+            dropZone.addEventListener('drop', handleDrop);
+            fileInput.addEventListener('change', handleFileSelect);
+
+            // URL loading
+            loadUrlBtn.addEventListener('click', loadFromUrl);
+            urlInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') loadFromUrl();
+            });
+
+            // Default image
+            loadDefaultBtn.addEventListener('click', loadDefaultImage);
+
+            // Settings
+            charsPerRow.addEventListener('input', () => {
+                charsValue.textContent = charsPerRow.value;
+                if (currentImage) convertToAscii();
+            });
+
+            algorithm.addEventListener('change', () => {
+                if (currentImage) convertToAscii();
+            });
+
+            charSet.addEventListener('change', () => {
+                customCharsRow.style.display = charSet.value === 'custom' ? 'block' : 'none';
+                if (currentImage) convertToAscii();
+            });
+
+            customChars.addEventListener('input', () => {
+                if (currentImage) convertToAscii();
+            });
+
+            invertChars.addEventListener('change', () => {
+                if (currentImage) convertToAscii();
+            });
+
+            // Copy buttons
+            copyTextBtn.addEventListener('click', copyAsText);
+            copyHtmlBtn.addEventListener('click', copyAsHtml);
+        }
+
+        // Drag and drop handlers
+        function handleDragOver(e) {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type.startsWith('image/')) {
+                loadImageFile(files[0]);
+            }
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                loadImageFile(files[0]);
+            }
+        }
+
+        // Image loading
+        function loadImageFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                loadImage(e.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function loadFromUrl() {
+            const url = urlInput.value.trim();
+            if (!url) {
+                showToast('Please enter an image URL');
+                return;
+            }
+            loadImage(url);
+        }
+
+        function loadDefaultImage() {
+            loadImage('default_image.jpg');
+        }
+
+        function loadImage(src) {
+            showLoading(true);
+            placeholder.style.display = 'none';
+
+            const img = new Image();
+            img.crossOrigin = 'Anonymous';
+
+            img.onload = () => {
+                currentImage = img;
+                showPreview(src);
+                convertToAscii();
+            };
+
+            img.onerror = () => {
+                showLoading(false);
+                showToast('Failed to load image. Try a different source.');
+                if (!currentImage) {
+                    placeholder.style.display = 'block';
+                }
+            };
+
+            img.src = src;
+        }
+
+        function showPreview(src) {
+            imagePreview.src = src;
+            imagePreview.style.display = 'block';
+            noPreview.style.display = 'none';
+        }
+
+        function showLoading(show) {
+            loading.classList.toggle('show', show);
+            isProcessing = show;
+        }
+
+        // ASCII conversion
+        function convertToAscii() {
+            if (!currentImage || isProcessing) return;
+
+            showLoading(true);
+            asciiOutput.textContent = '';
+
+            // Use setTimeout to allow UI to update
+            setTimeout(() => {
+                const result = brightnessMapping(currentImage);
+                asciiOutput.textContent = result.ascii;
+                outputInfo.textContent = `${result.width} × ${result.height} chars`;
+                showLoading(false);
+            }, 10);
+        }
+
+        // Brightness mapping algorithm
+        function brightnessMapping(img) {
+            const width = parseInt(charsPerRow.value);
+            // Aspect ratio correction: characters are typically ~2x taller than wide
+            const aspectRatio = img.height / img.width;
+            const height = Math.round(width * aspectRatio * 0.5);
+
+            // Create canvas for pixel data
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = width;
+            canvas.height = height;
+
+            // Draw scaled image
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Get pixel data
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const pixels = imageData.data;
+
+            // Get character set
+            let chars = getCharacterSet();
+            if (invertChars.checked) {
+                chars = chars.split('').reverse().join('');
+            }
+
+            // Convert to ASCII
+            let ascii = '';
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const i = (y * width + x) * 4;
+                    const r = pixels[i];
+                    const g = pixels[i + 1];
+                    const b = pixels[i + 2];
+
+                    // Calculate brightness (luminance formula)
+                    const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+                    // Map brightness to character
+                    const charIndex = Math.floor(brightness * (chars.length - 1));
+                    ascii += chars[charIndex];
+                }
+                ascii += '\n';
+            }
+
+            return { ascii, width, height };
+        }
+
+        function getCharacterSet() {
+            if (charSet.value === 'custom') {
+                return customChars.value || CHAR_SETS.standard;
+            }
+            return CHAR_SETS[charSet.value];
+        }
+
+        // Copy functions
+        function copyAsText() {
+            const text = asciiOutput.textContent;
+            if (!text) {
+                showToast('Nothing to copy');
+                return;
+            }
+
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Copied as text!');
+            }).catch(() => {
+                showToast('Failed to copy');
+            });
+        }
+
+        function copyAsHtml() {
+            const text = asciiOutput.textContent;
+            if (!text) {
+                showToast('Nothing to copy');
+                return;
+            }
+
+            const html = `<pre style="font-family: 'Courier New', Courier, monospace; font-size: 10px; line-height: 1; letter-spacing: 0;">${escapeHtml(text)}</pre>`;
+
+            navigator.clipboard.write([
+                new ClipboardItem({
+                    'text/html': new Blob([html], { type: 'text/html' }),
+                    'text/plain': new Blob([text], { type: 'text/plain' })
+                })
+            ]).then(() => {
+                showToast('Copied as HTML!');
+            }).catch(() => {
+                // Fallback to text copy
+                navigator.clipboard.writeText(html).then(() => {
+                    showToast('Copied HTML code!');
+                }).catch(() => {
+                    showToast('Failed to copy');
+                });
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Toast notification
+        function showToast(message) {
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2500);
+        }
+
+        // Start
+        init();
+    </script>
+</body>
+</html>
