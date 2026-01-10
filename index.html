@@ -930,8 +930,8 @@
 
         // Initialize
         function init() {
-            // Load saved theme or default to auto
-            const savedTheme = localStorage.getItem('ascii-theme') || 'auto';
+            // Load saved theme or default to dark
+            const savedTheme = localStorage.getItem('ascii-theme') || 'dark';
             themeSelect.value = savedTheme;
             applyTheme(savedTheme);
 
