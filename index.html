@@ -713,6 +713,10 @@
                         <button class="btn btn-secondary" id="copy-text-btn">Copy Text</button>
                         <button class="btn btn-secondary" id="copy-html-btn">Copy HTML</button>
                     </div>
+                    <div class="copy-buttons" style="margin-top: 8px;">
+                        <button class="btn btn-secondary" id="copy-markdown-btn">Copy Markdown</button>
+                        <button class="btn btn-primary" id="download-png-btn">Download PNG</button>
+                    </div>
                 </div>
             </aside>
 
@@ -781,6 +785,8 @@
         const loading = document.getElementById('loading');
         const copyTextBtn = document.getElementById('copy-text-btn');
         const copyHtmlBtn = document.getElementById('copy-html-btn');
+        const copyMarkdownBtn = document.getElementById('copy-markdown-btn');
+        const downloadPngBtn = document.getElementById('download-png-btn');
         const toast = document.getElementById('toast');
 
         // Display settings
@@ -1068,6 +1074,8 @@
             // Copy buttons
             copyTextBtn.addEventListener('click', copyAsText);
             copyHtmlBtn.addEventListener('click', copyAsHtml);
+            copyMarkdownBtn.addEventListener('click', copyAsMarkdown);
+            downloadPngBtn.addEventListener('click', downloadAsPng);
         }
 
         function updateDisplaySettings() {
@@ -1694,6 +1702,114 @@
                     showToast('Failed to copy');
                 });
             });
+        }
+
+        function copyAsMarkdown() {
+            const text = asciiOutput.textContent;
+            if (!text) {
+                showToast('Nothing to copy');
+                return;
+            }
+
+            const markdown = '```\n' + text + '```';
+
+            navigator.clipboard.writeText(markdown).then(() => {
+                showToast('Copied as Markdown!');
+            }).catch(() => {
+                showToast('Failed to copy');
+            });
+        }
+
+        function downloadAsPng() {
+            const text = asciiOutput.textContent;
+            if (!text && !lastColoredHtml) {
+                showToast('Nothing to download');
+                return;
+            }
+
+            const isColored = algorithm.value === 'colored' && lastColoredHtml;
+            const lines = text ? text.split('\n').filter(l => l.length > 0) : [];
+
+            // Measure character dimensions
+            const measureSpan = document.createElement('span');
+            measureSpan.style.fontFamily = fontFamily.value;
+            measureSpan.style.fontSize = fontSize.value + 'px';
+            measureSpan.style.lineHeight = '1';
+            measureSpan.style.position = 'absolute';
+            measureSpan.style.visibility = 'hidden';
+            measureSpan.textContent = 'M';
+            document.body.appendChild(measureSpan);
+            const charWidth = measureSpan.getBoundingClientRect().width;
+            const charHeight = measureSpan.getBoundingClientRect().height;
+            document.body.removeChild(measureSpan);
+
+            // Calculate canvas size
+            const maxLineLength = lines.reduce((max, line) => Math.max(max, line.length), 0);
+            const padding = 20;
+            const canvasWidth = Math.ceil(maxLineLength * charWidth) + padding * 2;
+            const canvasHeight = Math.ceil(lines.length * charHeight) + padding * 2;
+
+            // Create canvas
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+
+            // Fill background
+            const bgColor = isDarkMode() ? '#0d0d0d' : '#ffffff';
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+            // Set font
+            ctx.font = `${fontSize.value}px ${fontFamily.value}`;
+            ctx.textBaseline = 'top';
+
+            if (isColored) {
+                // Parse colored HTML and render each character
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = lastColoredHtml;
+
+                let x = padding;
+                let y = padding;
+
+                for (const node of tempDiv.childNodes) {
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        const text = node.textContent;
+                        for (const char of text) {
+                            if (char === '\n') {
+                                x = padding;
+                                y += charHeight;
+                            } else {
+                                ctx.fillStyle = isDarkMode() ? '#f0f0f0' : '#000000';
+                                ctx.fillText(char, x, y);
+                                x += charWidth;
+                            }
+                        }
+                    } else if (node.tagName === 'SPAN') {
+                        const color = node.style.color || (isDarkMode() ? '#f0f0f0' : '#000000');
+                        const char = node.textContent;
+                        ctx.fillStyle = color;
+                        ctx.fillText(char, x, y);
+                        x += charWidth;
+                    }
+                }
+            } else {
+                // Render plain text
+                const textColor = isDarkMode() ? '#f0f0f0' : '#000000';
+                ctx.fillStyle = textColor;
+
+                lines.forEach((line, i) => {
+                    ctx.fillText(line, padding, padding + i * charHeight);
+                });
+            }
+
+            // Download
+            const link = document.createElement('a');
+            link.download = 'ascii-art.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+
+            showToast('Downloaded as PNG!');
         }
 
         // Toast notification
