@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Image to ASCII Converter</title>
     <style>
-        :root {
+        /* Light theme (default) */
+        :root, [data-theme="light"], [data-theme="auto"] {
             --bg-primary: #ffffff;
             --bg-secondary: #f5f5f5;
             --bg-tertiary: #e8e8e8;
@@ -21,8 +22,26 @@
             --ascii-text: #000000;
         }
 
+        /* Dark theme */
+        [data-theme="dark"] {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --bg-tertiary: #3d3d3d;
+            --text-primary: #f0f0f0;
+            --text-secondary: #a0a0a0;
+            --border-color: #444;
+            --accent-color: #5ba0e8;
+            --accent-hover: #4a90d9;
+            --success-color: #34c759;
+            --drop-zone-bg: #1e3a5f;
+            --drop-zone-border: #5ba0e8;
+            --ascii-bg: #0d0d0d;
+            --ascii-text: #f0f0f0;
+        }
+
+        /* Auto theme - follows system preference */
         @media (prefers-color-scheme: dark) {
-            :root {
+            [data-theme="auto"] {
                 --bg-primary: #1a1a1a;
                 --bg-secondary: #2d2d2d;
                 --bg-tertiary: #3d3d3d;
@@ -476,6 +495,15 @@
                     <h3>Display Settings</h3>
 
                     <div class="setting-row">
+                        <label for="theme-select">Theme</label>
+                        <select id="theme-select">
+                            <option value="auto">Auto (System)</option>
+                            <option value="light">Light</option>
+                            <option value="dark">Dark</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-row">
                         <label for="font-family">Font</label>
                         <select id="font-family">
                             <!-- Populated dynamically based on available fonts -->
@@ -541,7 +569,7 @@
                             </div>
                             <div class="setting-row">
                                 <div class="checkbox-row">
-                                    <input type="checkbox" id="invert-chars" checked>
+                                    <input type="checkbox" id="invert-chars">
                                     <label for="invert-chars" style="margin: 0;">Invert brightness</label>
                                 </div>
                             </div>
@@ -557,7 +585,7 @@
                             </div>
                             <div class="setting-row">
                                 <div class="checkbox-row">
-                                    <input type="checkbox" id="edge-invert" checked>
+                                    <input type="checkbox" id="edge-invert">
                                     <label for="edge-invert" style="margin: 0;">Invert (light edges)</label>
                                 </div>
                             </div>
@@ -586,7 +614,7 @@
                             </div>
                             <div class="setting-row">
                                 <div class="checkbox-row">
-                                    <input type="checkbox" id="dither-invert" checked>
+                                    <input type="checkbox" id="dither-invert">
                                     <label for="dither-invert" style="margin: 0;">Invert brightness</label>
                                 </div>
                             </div>
@@ -609,7 +637,7 @@
                             </div>
                             <div class="setting-row">
                                 <div class="checkbox-row">
-                                    <input type="checkbox" id="pattern-invert" checked>
+                                    <input type="checkbox" id="pattern-invert">
                                     <label for="pattern-invert" style="margin: 0;">Invert brightness</label>
                                 </div>
                             </div>
@@ -638,7 +666,7 @@
                             </div>
                             <div class="setting-row">
                                 <div class="checkbox-row">
-                                    <input type="checkbox" id="colored-invert" checked>
+                                    <input type="checkbox" id="colored-invert">
                                     <label for="colored-invert" style="margin: 0;">Invert brightness</label>
                                 </div>
                             </div>
@@ -672,7 +700,7 @@
                             </div>
                             <div class="setting-row">
                                 <div class="checkbox-row">
-                                    <input type="checkbox" id="contrast-invert" checked>
+                                    <input type="checkbox" id="contrast-invert">
                                     <label for="contrast-invert" style="margin: 0;">Invert brightness</label>
                                 </div>
                             </div>
@@ -757,6 +785,7 @@
         const toast = document.getElementById('toast');
 
         // Display settings
+        const themeSelect = document.getElementById('theme-select');
         const fontFamily = document.getElementById('font-family');
         const fontSize = document.getElementById('font-size');
         const fontSizeValue = document.getElementById('font-size-value');
@@ -875,12 +904,51 @@
             }
         }
 
+        // Theme handling
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('ascii-theme', theme);
+            updateInvertDefaults();
+        }
+
+        function isDarkMode() {
+            const theme = themeSelect.value;
+            if (theme === 'dark') return true;
+            if (theme === 'light') return false;
+            // Auto - check system preference
+            return window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+
+        function updateInvertDefaults() {
+            const shouldInvert = isDarkMode();
+            // Update all invert checkboxes to match the theme
+            invertChars.checked = shouldInvert;
+            edgeInvert.checked = shouldInvert;
+            ditherInvert.checked = shouldInvert;
+            patternInvert.checked = shouldInvert;
+            coloredInvert.checked = shouldInvert;
+            contrastInvert.checked = shouldInvert;
+        }
+
         // Initialize
         function init() {
+            // Load saved theme or default to auto
+            const savedTheme = localStorage.getItem('ascii-theme') || 'auto';
+            themeSelect.value = savedTheme;
+            applyTheme(savedTheme);
+
             populateFontSelector();
             setupEventListeners();
             updateDisplaySettings();
             updateCharRatio();
+
+            // Listen for system theme changes
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+                if (themeSelect.value === 'auto') {
+                    updateInvertDefaults();
+                    if (currentImage) convertToAscii();
+                }
+            });
         }
 
         function setupEventListeners() {
@@ -901,6 +969,11 @@
             loadDefaultBtn.addEventListener('click', loadDefaultImage);
 
             // Display settings
+            themeSelect.addEventListener('change', () => {
+                applyTheme(themeSelect.value);
+                if (currentImage) convertToAscii();
+            });
+
             fontFamily.addEventListener('change', () => {
                 updateDisplaySettings();
                 updateCharRatio();
