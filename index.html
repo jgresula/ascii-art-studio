@@ -1410,22 +1410,37 @@
 
         function computeCharacterPatterns(chars, blockSize) {
             const patterns = new Map();
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = blockSize;
-            canvas.height = blockSize;
 
-            ctx.fillStyle = 'white';
-            ctx.font = `${blockSize}px ${fontFamily.value}`;
-            ctx.textBaseline = 'top';
+            // Render at larger size for better quality, then downsample
+            const renderSize = 24;
+            const renderCanvas = document.createElement('canvas');
+            const renderCtx = renderCanvas.getContext('2d');
+            renderCanvas.width = renderSize;
+            renderCanvas.height = renderSize;
+
+            // Downsample canvas
+            const sampleCanvas = document.createElement('canvas');
+            const sampleCtx = sampleCanvas.getContext('2d');
+            sampleCanvas.width = blockSize;
+            sampleCanvas.height = blockSize;
+
+            renderCtx.textBaseline = 'top';
+            renderCtx.textAlign = 'center';
 
             for (const char of chars) {
-                ctx.fillStyle = 'white';
-                ctx.fillRect(0, 0, blockSize, blockSize);
-                ctx.fillStyle = 'black';
-                ctx.fillText(char, 0, 0);
+                // Render character at high resolution
+                renderCtx.fillStyle = 'white';
+                renderCtx.fillRect(0, 0, renderSize, renderSize);
+                renderCtx.fillStyle = 'black';
+                renderCtx.font = `${renderSize}px ${fontFamily.value}`;
+                renderCtx.fillText(char, renderSize / 2, 0);
 
-                const imageData = ctx.getImageData(0, 0, blockSize, blockSize);
+                // Downsample to block size
+                sampleCtx.fillStyle = 'white';
+                sampleCtx.fillRect(0, 0, blockSize, blockSize);
+                sampleCtx.drawImage(renderCanvas, 0, 0, blockSize, blockSize);
+
+                const imageData = sampleCtx.getImageData(0, 0, blockSize, blockSize);
                 const pattern = [];
                 for (let i = 0; i < imageData.data.length; i += 4) {
                     pattern.push(imageData.data[i] / 255); // Use red channel (grayscale)
