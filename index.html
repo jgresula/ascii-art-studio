@@ -770,8 +770,8 @@
                     // Calculate brightness (luminance formula)
                     const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
 
-                    // Map brightness to character
-                    const charIndex = Math.floor(brightness * (chars.length - 1));
+                    // Map brightness to character (evenly distributed)
+                    const charIndex = Math.min(chars.length - 1, Math.floor(brightness * chars.length));
                     ascii += chars[charIndex];
                 }
                 ascii += '\n';
