@@ -567,13 +567,28 @@
                         <div class="algo-settings-panel" id="settings-dithering">
                             <h4>Dithering Settings</h4>
                             <div class="setting-row">
+                                <label for="dither-char-set">Character Set</label>
+                                <select id="dither-char-set">
+                                    <option value="standard">Standard</option>
+                                    <option value="detailed">Detailed</option>
+                                    <option value="blocks">Blocks</option>
+                                    <option value="simple">Simple</option>
+                                </select>
+                            </div>
+                            <div class="setting-row">
                                 <label for="dither-chars">Characters (dark to light)</label>
-                                <input type="text" id="dither-chars" value="@#%*+=-:. " placeholder="Characters dark to light">
+                                <input type="text" id="dither-chars" value="@%#*+=-:. " placeholder="Characters dark to light">
                             </div>
                             <div class="setting-row">
                                 <label for="dither-strength">Error Diffusion Strength</label>
                                 <input type="range" id="dither-strength" min="0" max="100" value="100">
                                 <div class="setting-value"><span id="dither-strength-value">100</span>%</div>
+                            </div>
+                            <div class="setting-row">
+                                <div class="checkbox-row">
+                                    <input type="checkbox" id="dither-invert">
+                                    <label for="dither-invert" style="margin: 0;">Invert brightness</label>
+                                </div>
                             </div>
                         </div>
 
@@ -592,6 +607,12 @@
                                 <label for="pattern-chars">Character Pool</label>
                                 <input type="text" id="pattern-chars" value="@#$%&8BMW*oahkbdpqwmZO0QCJYXzcvunxrjft/\|()1{}[]?-_+~<>i!lI;:,. " placeholder="Characters to use">
                             </div>
+                            <div class="setting-row">
+                                <div class="checkbox-row">
+                                    <input type="checkbox" id="pattern-invert">
+                                    <label for="pattern-invert" style="margin: 0;">Invert brightness</label>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Colored ASCII Settings -->
@@ -600,16 +621,26 @@
                             <div class="setting-row">
                                 <label for="colored-char-set">Character Set</label>
                                 <select id="colored-char-set">
-                                    <option value="standard">Standard (@%#*+=-:. )</option>
-                                    <option value="detailed">Detailed (70 chars)</option>
-                                    <option value="blocks">Blocks (█▓▒░ )</option>
-                                    <option value="single">Single Character (█)</option>
+                                    <option value="standard">Standard</option>
+                                    <option value="detailed">Detailed</option>
+                                    <option value="blocks">Blocks</option>
+                                    <option value="single">Single (█)</option>
                                 </select>
+                            </div>
+                            <div class="setting-row">
+                                <label for="colored-chars">Characters (dark to light)</label>
+                                <input type="text" id="colored-chars" value="@%#*+=-:. " placeholder="Characters dark to light">
                             </div>
                             <div class="setting-row">
                                 <label for="color-saturation">Saturation</label>
                                 <input type="range" id="color-saturation" min="0" max="200" value="100">
                                 <div class="setting-value"><span id="color-saturation-value">100</span>%</div>
+                            </div>
+                            <div class="setting-row">
+                                <div class="checkbox-row">
+                                    <input type="checkbox" id="colored-invert">
+                                    <label for="colored-invert" style="margin: 0;">Invert brightness</label>
+                                </div>
                             </div>
                         </div>
 
@@ -619,10 +650,14 @@
                             <div class="setting-row">
                                 <label for="contrast-char-set">Character Set</label>
                                 <select id="contrast-char-set">
-                                    <option value="standard">Standard (@%#*+=-:. )</option>
-                                    <option value="detailed">Detailed (70 chars)</option>
-                                    <option value="blocks">Blocks (█▓▒░ )</option>
+                                    <option value="standard">Standard</option>
+                                    <option value="detailed">Detailed</option>
+                                    <option value="blocks">Blocks</option>
                                 </select>
+                            </div>
+                            <div class="setting-row">
+                                <label for="contrast-chars">Characters (dark to light)</label>
+                                <input type="text" id="contrast-chars" value="@%#*+=-:. " placeholder="Characters dark to light">
                             </div>
                             <div class="setting-row">
                                 <label for="contrast-amount">Contrast Amount</label>
@@ -633,6 +668,12 @@
                                 <div class="checkbox-row">
                                     <input type="checkbox" id="contrast-histogram" checked>
                                     <label for="contrast-histogram" style="margin: 0;">Histogram equalization</label>
+                                </div>
+                            </div>
+                            <div class="setting-row">
+                                <div class="checkbox-row">
+                                    <input type="checkbox" id="contrast-invert">
+                                    <label for="contrast-invert" style="margin: 0;">Invert brightness</label>
                                 </div>
                             </div>
                         </div>
@@ -734,24 +775,31 @@
         const edgeInvert = document.getElementById('edge-invert');
 
         // Dithering settings
+        const ditherCharSet = document.getElementById('dither-char-set');
         const ditherChars = document.getElementById('dither-chars');
         const ditherStrength = document.getElementById('dither-strength');
         const ditherStrengthValue = document.getElementById('dither-strength-value');
+        const ditherInvert = document.getElementById('dither-invert');
 
         // Pattern settings
         const patternBlockSize = document.getElementById('pattern-block-size');
         const patternChars = document.getElementById('pattern-chars');
+        const patternInvert = document.getElementById('pattern-invert');
 
         // Colored settings
         const coloredCharSet = document.getElementById('colored-char-set');
+        const coloredChars = document.getElementById('colored-chars');
         const colorSaturation = document.getElementById('color-saturation');
         const colorSaturationValue = document.getElementById('color-saturation-value');
+        const coloredInvert = document.getElementById('colored-invert');
 
         // Contrast settings
         const contrastCharSet = document.getElementById('contrast-char-set');
+        const contrastChars = document.getElementById('contrast-chars');
         const contrastAmount = document.getElementById('contrast-amount');
         const contrastAmountValue = document.getElementById('contrast-amount-value');
         const contrastHistogram = document.getElementById('contrast-histogram');
+        const contrastInvert = document.getElementById('contrast-invert');
 
         // Font detection
         const CANDIDATE_FONTS = [
@@ -905,30 +953,46 @@
             edgeInvert.addEventListener('change', () => { if (currentImage) convertToAscii(); });
 
             // Dithering settings
+            ditherCharSet.addEventListener('change', () => {
+                ditherChars.value = CHAR_SETS[ditherCharSet.value] || CHAR_SETS.standard;
+                if (currentImage) convertToAscii();
+            });
             ditherChars.addEventListener('input', () => { if (currentImage) convertToAscii(); });
             ditherStrength.addEventListener('input', () => {
                 ditherStrengthValue.textContent = ditherStrength.value;
                 if (currentImage) convertToAscii();
             });
+            ditherInvert.addEventListener('change', () => { if (currentImage) convertToAscii(); });
 
             // Pattern settings
             patternBlockSize.addEventListener('change', () => { if (currentImage) convertToAscii(); });
             patternChars.addEventListener('input', () => { if (currentImage) convertToAscii(); });
+            patternInvert.addEventListener('change', () => { if (currentImage) convertToAscii(); });
 
             // Colored settings
-            coloredCharSet.addEventListener('change', () => { if (currentImage) convertToAscii(); });
+            coloredCharSet.addEventListener('change', () => {
+                coloredChars.value = CHAR_SETS[coloredCharSet.value] || CHAR_SETS.standard;
+                if (currentImage) convertToAscii();
+            });
+            coloredChars.addEventListener('input', () => { if (currentImage) convertToAscii(); });
             colorSaturation.addEventListener('input', () => {
                 colorSaturationValue.textContent = colorSaturation.value;
                 if (currentImage) convertToAscii();
             });
+            coloredInvert.addEventListener('change', () => { if (currentImage) convertToAscii(); });
 
             // Contrast settings
-            contrastCharSet.addEventListener('change', () => { if (currentImage) convertToAscii(); });
+            contrastCharSet.addEventListener('change', () => {
+                contrastChars.value = CHAR_SETS[contrastCharSet.value] || CHAR_SETS.standard;
+                if (currentImage) convertToAscii();
+            });
+            contrastChars.addEventListener('input', () => { if (currentImage) convertToAscii(); });
             contrastAmount.addEventListener('input', () => {
                 contrastAmountValue.textContent = contrastAmount.value;
                 if (currentImage) convertToAscii();
             });
             contrastHistogram.addEventListener('change', () => { if (currentImage) convertToAscii(); });
+            contrastInvert.addEventListener('change', () => { if (currentImage) convertToAscii(); });
 
             // Copy buttons
             copyTextBtn.addEventListener('click', copyAsText);
@@ -1232,7 +1296,10 @@
             const width = parseInt(charsPerRow.value);
             const { imageData, height } = getScaledImageData(img, width);
             const pixels = imageData.data;
-            const chars = ditherChars.value || '@#%*+=-:. ';
+            let chars = ditherChars.value || CHAR_SETS.standard;
+            if (ditherInvert.checked) {
+                chars = chars.split('').reverse().join('');
+            }
             const strength = parseInt(ditherStrength.value) / 100;
 
             // Create brightness array
@@ -1280,6 +1347,7 @@
             const targetWidth = parseInt(charsPerRow.value);
             const blockSize = parseInt(patternBlockSize.value);
             const chars = patternChars.value || '@#$%&*oahkbdpqwm. ';
+            const invert = patternInvert.checked;
 
             // Pre-compute character patterns
             const charPatterns = computeCharacterPatterns(chars, blockSize);
@@ -1310,9 +1378,10 @@
                             const py = by * blockSize + y;
                             if (px < sampleWidth && py < sampleHeight) {
                                 const i = (py * sampleWidth + px) * 4;
-                                blockPattern.push(getBrightness(pixels[i], pixels[i + 1], pixels[i + 2]));
+                                let b = getBrightness(pixels[i], pixels[i + 1], pixels[i + 2]);
+                                blockPattern.push(invert ? 1 - b : b);
                             } else {
-                                blockPattern.push(1);
+                                blockPattern.push(invert ? 0 : 1);
                             }
                         }
                     }
@@ -1373,8 +1442,12 @@
             const { imageData, height } = getScaledImageData(img, width);
             const pixels = imageData.data;
             const saturation = parseInt(colorSaturation.value) / 100;
+            const invert = coloredInvert.checked;
 
-            let chars = CHAR_SETS[coloredCharSet.value] || CHAR_SETS.standard;
+            let chars = coloredChars.value || CHAR_SETS.standard;
+            if (invert) {
+                chars = chars.split('').reverse().join('');
+            }
 
             let html = '';
             for (let y = 0; y < height; y++) {
@@ -1415,8 +1488,12 @@
             const pixels = imageData.data;
             const contrast = parseInt(contrastAmount.value) / 100;
             const useHistogram = contrastHistogram.checked;
+            const invert = contrastInvert.checked;
 
-            let chars = CHAR_SETS[contrastCharSet.value] || CHAR_SETS.standard;
+            let chars = contrastChars.value || CHAR_SETS.standard;
+            if (invert) {
+                chars = chars.split('').reverse().join('');
+            }
 
             // Calculate brightness values
             const brightnessValues = new Float32Array(width * height);
