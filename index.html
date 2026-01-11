@@ -889,12 +889,21 @@
         })();
 
         // Median cut color quantization
-        function quantizeColors(pixels, numColors) {
+        function quantizeColors(pixels, numColors, saturation = 1) {
             // Collect unique colors (sample for performance)
             const colorMap = new Map();
             const step = Math.max(1, Math.floor(pixels.length / 4 / 10000)); // Sample max ~10k pixels
             for (let i = 0; i < pixels.length; i += 4 * step) {
-                const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
+                let r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
+
+                // Apply saturation before quantization (for grayscale palettes)
+                if (saturation < 1) {
+                    const gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+                    r = Math.round(gray + saturation * (r - gray));
+                    g = Math.round(gray + saturation * (g - gray));
+                    b = Math.round(gray + saturation * (b - gray));
+                }
+
                 const key = (r << 16) | (g << 8) | b;
                 colorMap.set(key, (colorMap.get(key) || 0) + 1);
             }
@@ -1669,11 +1678,12 @@
                 palette = ANSI_256;
             } else if (mode.startsWith('adaptive')) {
                 const numColors = parseInt(mode.replace('adaptive', ''));
-                // Cache palette for performance
-                if (!cachedPalette || cachedPalette.numColors !== numColors) {
+                // Cache palette for performance (invalidate when saturation changes)
+                if (!cachedPalette || cachedPalette.numColors !== numColors || cachedPalette.saturation !== saturation) {
                     cachedPalette = {
                         numColors,
-                        colors: quantizeColors(pixels, numColors)
+                        saturation,
+                        colors: quantizeColors(pixels, numColors, saturation)
                     };
                 }
                 palette = cachedPalette.colors;
