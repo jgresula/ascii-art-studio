@@ -538,6 +538,22 @@
                     </div>
                 </div>
 
+                <div class="control-section" data-section="settings-presets">
+                    <h3>Settings Presets</h3>
+                    <div class="section-content">
+                        <div class="setting-row">
+                            <label for="settings-preset">Preset</label>
+                            <select id="settings-preset" style="flex: 1;">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                        <div class="copy-buttons" style="margin-top: 8px;">
+                            <button class="btn btn-secondary" id="save-settings-preset-btn">Save Current</button>
+                            <button class="btn btn-secondary" id="delete-settings-preset-btn" style="display: none;">Delete</button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="control-section" data-section="display-settings">
                     <h3>Display Settings</h3>
                     <div class="section-content">
@@ -797,6 +813,100 @@
             none: ' '
         };
 
+        // Default settings preset
+        const DEFAULT_SETTINGS = {
+            // Display
+            theme: 'dark',
+            charsPerRow: 100,
+            fontSize: 10,
+            autoRatio: true,
+            charRatio: 0.5,
+            // Algorithm
+            algorithm: 'brightness',
+            charSetPreset: 'standard',
+            customChars: '@%#+=*-:. ',
+            ditherStrength: 100,
+            edgeThreshold: 50,
+            patternBlockSize: '3',
+            patternChars: "@#$%&8BMW*oahkbdpqwmZO0QCJYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,. ",
+            // Output
+            colorMode: 'truecolor',
+            invertBrightness: true,
+            histogramEq: false,
+            contrast: 100,
+            brightnessBlend: 50,
+            saturation: 100,
+            monoFg: '#f0f0f0',
+            monoBg: '#0d0d0d'
+        };
+
+        // Built-in settings presets
+        const SETTINGS_PRESETS = {
+            'default': {
+                name: 'Default',
+                settings: { ...DEFAULT_SETTINGS }
+            },
+            'high-detail': {
+                name: 'High Detail',
+                settings: {
+                    ...DEFAULT_SETTINGS,
+                    charsPerRow: 150,
+                    charSetPreset: 'detailed',
+                    customChars: '$@B%8&WM#oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~*<>i!lI;:,"^`\'. ',
+                    colorMode: 'truecolor'
+                }
+            },
+            'retro-terminal': {
+                name: 'Retro Terminal',
+                settings: {
+                    ...DEFAULT_SETTINGS,
+                    charSetPreset: 'simple',
+                    customChars: '#. ',
+                    colorMode: 'monochrome',
+                    monoFg: '#33ff33',
+                    monoBg: '#0a0a0a',
+                    invertBrightness: true
+                }
+            },
+            'classic-ascii': {
+                name: 'Classic ASCII',
+                settings: {
+                    ...DEFAULT_SETTINGS,
+                    colorMode: 'monochrome',
+                    monoFg: '#ffffff',
+                    monoBg: '#000000'
+                }
+            },
+            'print-friendly': {
+                name: 'Print Friendly',
+                settings: {
+                    ...DEFAULT_SETTINGS,
+                    theme: 'light',
+                    colorMode: 'monochrome',
+                    invertBrightness: false,
+                    monoFg: '#000000',
+                    monoBg: '#ffffff'
+                }
+            },
+            'colorful': {
+                name: 'Colorful',
+                settings: {
+                    ...DEFAULT_SETTINGS,
+                    colorMode: 'truecolor',
+                    saturation: 150,
+                    contrast: 120
+                }
+            },
+            'limited-palette': {
+                name: 'Limited Palette (16)',
+                settings: {
+                    ...DEFAULT_SETTINGS,
+                    colorMode: 'adaptive16',
+                    contrast: 110
+                }
+            }
+        };
+
         // Measure visual brightness of a character (0 = black/dense, 1 = white/empty)
         function measureCharBrightness(char, fontFamilyValue) {
             const size = 24;
@@ -1013,6 +1123,9 @@
         const copyMarkdownBtn = document.getElementById('copy-markdown-btn');
         const downloadPngBtn = document.getElementById('download-png-btn');
         const resetSettingsBtn = document.getElementById('reset-settings-btn');
+        const settingsPreset = document.getElementById('settings-preset');
+        const saveSettingsPresetBtn = document.getElementById('save-settings-preset-btn');
+        const deleteSettingsPresetBtn = document.getElementById('delete-settings-preset-btn');
         const toast = document.getElementById('toast');
 
         // Display settings
@@ -1163,6 +1276,7 @@
             applyTheme(savedTheme);
 
             populateFontSelector();
+            populateSettingsPresetDropdown();
             setupEventListeners();
             setupSectionToggles();
             updateDisplaySettings();
@@ -1172,6 +1286,7 @@
             initColorModeVisibility();
             initSliderValues();
             loadSavedChars();
+            updateSettingsDeleteButtonVisibility();
             charRatio.disabled = autoRatio.checked;
 
             // Listen for system theme changes
@@ -1463,60 +1578,233 @@
             copyMarkdownBtn.addEventListener('click', copyAsMarkdown);
             downloadPngBtn.addEventListener('click', downloadAsPng);
             resetSettingsBtn.addEventListener('click', resetAllSettings);
+
+            // Settings presets
+            settingsPreset.addEventListener('change', handleSettingsPresetChange);
+            saveSettingsPresetBtn.addEventListener('click', () => {
+                const name = prompt('Enter a name for this preset:');
+                if (name && name.trim()) {
+                    saveCurrentAsPreset(name.trim());
+                }
+            });
+            deleteSettingsPresetBtn.addEventListener('click', () => {
+                const value = settingsPreset.value;
+                if (value.startsWith('custom:')) {
+                    const name = value.substring(7);
+                    if (confirm(`Delete preset "${name}"?`)) {
+                        deleteSettingsPreset(name);
+                    }
+                }
+            });
         }
 
-        function resetAllSettings() {
+        // Get current settings as an object
+        function getCurrentSettings() {
+            return {
+                // Display
+                theme: themeSelect.value,
+                charsPerRow: parseInt(charsPerRow.value),
+                fontSize: parseInt(fontSize.value),
+                autoRatio: autoRatio.checked,
+                charRatio: parseFloat(charRatio.value),
+                // Algorithm
+                algorithm: algorithm.value,
+                charSetPreset: charSet.value,
+                customChars: customChars.value,
+                ditherStrength: parseInt(ditherStrength.value),
+                edgeThreshold: parseInt(edgeThreshold.value),
+                patternBlockSize: patternBlockSize.value,
+                patternChars: patternChars.value,
+                // Output
+                colorMode: colorMode.value,
+                invertBrightness: invertBrightness.checked,
+                histogramEq: contrastHistogram.checked,
+                contrast: parseInt(contrastAmount.value),
+                brightnessBlend: parseInt(brightnessBlend.value),
+                saturation: parseInt(colorSaturation.value),
+                monoFg: monoFg.value,
+                monoBg: monoBg.value
+            };
+        }
+
+        // Apply settings from an object
+        function applySettings(settings, skipConvert = false) {
             // Display settings
-            themeSelect.value = 'dark';
-            applyTheme('dark');
-            charsPerRow.value = 100;
-            fontSize.value = 10;
-            fontFamily.selectedIndex = 0;
-            charRatio.value = 0.5;
-            autoRatio.checked = true;
-            charRatio.disabled = true;
+            if (settings.theme !== undefined) {
+                themeSelect.value = settings.theme;
+                applyTheme(settings.theme);
+            }
+            if (settings.charsPerRow !== undefined) {
+                charsPerRow.value = settings.charsPerRow;
+            }
+            if (settings.fontSize !== undefined) {
+                fontSize.value = settings.fontSize;
+            }
+            if (settings.autoRatio !== undefined) {
+                autoRatio.checked = settings.autoRatio;
+                charRatio.disabled = settings.autoRatio;
+            }
+            if (settings.charRatio !== undefined && !settings.autoRatio) {
+                charRatio.value = settings.charRatio;
+            }
 
-            // Algorithm
-            algorithm.value = 'brightness';
+            // Algorithm settings
+            if (settings.algorithm !== undefined) {
+                algorithm.value = settings.algorithm;
+            }
+            if (settings.charSetPreset !== undefined) {
+                charSet.value = settings.charSetPreset;
+            }
+            if (settings.customChars !== undefined) {
+                // Sort for current font if it's a built-in preset
+                if (settings.charSetPreset && !isCustomPreset(settings.charSetPreset)) {
+                    customChars.value = sortAndOptimizeChars(settings.customChars, 0, fontFamily.value);
+                } else {
+                    customChars.value = settings.customChars;
+                }
+            }
+            if (settings.ditherStrength !== undefined) {
+                ditherStrength.value = settings.ditherStrength;
+            }
+            if (settings.edgeThreshold !== undefined) {
+                edgeThreshold.value = settings.edgeThreshold;
+            }
+            if (settings.patternBlockSize !== undefined) {
+                patternBlockSize.value = settings.patternBlockSize;
+            }
+            if (settings.patternChars !== undefined) {
+                patternChars.value = settings.patternChars;
+            }
 
-            // Character set
-            charSet.value = 'standard';
-            customChars.value = sortAndOptimizeChars(CHAR_SETS.standard, 0, fontFamily.value);
+            // Output settings
+            if (settings.colorMode !== undefined) {
+                colorMode.value = settings.colorMode;
+            }
+            if (settings.invertBrightness !== undefined) {
+                invertBrightness.checked = settings.invertBrightness;
+            }
+            if (settings.histogramEq !== undefined) {
+                contrastHistogram.checked = settings.histogramEq;
+            }
+            if (settings.contrast !== undefined) {
+                contrastAmount.value = settings.contrast;
+            }
+            if (settings.brightnessBlend !== undefined) {
+                brightnessBlend.value = settings.brightnessBlend;
+            }
+            if (settings.saturation !== undefined) {
+                colorSaturation.value = settings.saturation;
+            }
+            if (settings.monoFg !== undefined) {
+                monoFg.value = settings.monoFg;
+            }
+            if (settings.monoBg !== undefined) {
+                monoBg.value = settings.monoBg;
+            }
 
-            // Color settings
-            colorMode.value = 'truecolor';
-            contrast.value = 100;
-            brightnessBlend.value = 50;
-            colorSaturation.value = 100;
-            contrastHistogram.checked = false;
-            invertBrightness.checked = true; // dark theme default
-
-            // Mono colors
-            monoFg.value = '#ffffff';
-            monoBg.value = '#1a1a2e';
-
-            // Block pattern
-            patternChars.value = "@#$%&8BMW*oahkbdpqwmZO0QCJYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,. ";
-
-            // Edge detection
-            edgeThreshold.value = 50;
-
-            // Dithering
-            ditherStrength.value = 100;
-
-            // Update UI
+            // Update all UI state
             updateDisplaySettings();
-            updateCharRatio();
+            if (settings.autoRatio) {
+                updateCharRatio();
+            } else {
+                charRatioValue.textContent = charRatio.value;
+            }
             updateAlgorithmPanel();
             initColorModeVisibility();
             initSliderValues();
-            updateMonoColors();
+            updateDeleteButtonVisibility();
+            cachedPalette = null; // Clear palette cache
 
             // Re-convert if image loaded
-            if (currentImage) {
+            if (!skipConvert && currentImage) {
                 convertToAscii();
             }
+        }
 
+        // Settings presets localStorage management
+        function getCustomSettingsPresets() {
+            return JSON.parse(localStorage.getItem('ascii-settings-presets') || '{}');
+        }
+
+        function saveCustomSettingsPresets(presets) {
+            localStorage.setItem('ascii-settings-presets', JSON.stringify(presets));
+        }
+
+        function saveCurrentAsPreset(name) {
+            const presets = getCustomSettingsPresets();
+            presets[name] = getCurrentSettings();
+            saveCustomSettingsPresets(presets);
+            populateSettingsPresetDropdown();
+            settingsPreset.value = 'custom:' + name;
+            updateSettingsDeleteButtonVisibility();
+            showToast(`Preset "${name}" saved`);
+        }
+
+        function deleteSettingsPreset(name) {
+            const presets = getCustomSettingsPresets();
+            delete presets[name];
+            saveCustomSettingsPresets(presets);
+            populateSettingsPresetDropdown();
+            settingsPreset.value = 'default';
+            updateSettingsDeleteButtonVisibility();
+            showToast(`Preset "${name}" deleted`);
+        }
+
+        function populateSettingsPresetDropdown() {
+            const customPresets = getCustomSettingsPresets();
+
+            // Clear and rebuild
+            settingsPreset.innerHTML = '';
+
+            // Built-in presets
+            const builtInGroup = document.createElement('optgroup');
+            builtInGroup.label = 'Built-in';
+            for (const [key, preset] of Object.entries(SETTINGS_PRESETS)) {
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = preset.name;
+                builtInGroup.appendChild(option);
+            }
+            settingsPreset.appendChild(builtInGroup);
+
+            // Custom presets
+            const customKeys = Object.keys(customPresets);
+            if (customKeys.length > 0) {
+                const customGroup = document.createElement('optgroup');
+                customGroup.label = 'Custom';
+                for (const name of customKeys) {
+                    const option = document.createElement('option');
+                    option.value = 'custom:' + name;
+                    option.textContent = name;
+                    customGroup.appendChild(option);
+                }
+                settingsPreset.appendChild(customGroup);
+            }
+        }
+
+        function updateSettingsDeleteButtonVisibility() {
+            const isCustom = settingsPreset.value.startsWith('custom:');
+            deleteSettingsPresetBtn.style.display = isCustom ? 'inline-block' : 'none';
+        }
+
+        function handleSettingsPresetChange() {
+            const value = settingsPreset.value;
+            if (value.startsWith('custom:')) {
+                const name = value.substring(7);
+                const presets = getCustomSettingsPresets();
+                if (presets[name]) {
+                    applySettings(presets[name]);
+                }
+            } else if (SETTINGS_PRESETS[value]) {
+                applySettings(SETTINGS_PRESETS[value].settings);
+            }
+            updateSettingsDeleteButtonVisibility();
+        }
+
+        function resetAllSettings() {
+            applySettings(DEFAULT_SETTINGS);
+            settingsPreset.value = 'default';
+            updateSettingsDeleteButtonVisibility();
             showToast('Settings reset to defaults');
         }
 
