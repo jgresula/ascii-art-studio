@@ -87,6 +87,35 @@ function getColorString(r, g, b, opacity) {
     return colorStr;
 }
 
+// ============================================
+// REUSABLE BUFFER POOL - Reduces GC pressure
+// ============================================
+// Pre-allocated buffers that grow as needed but never shrink
+let poolColorR = null;
+let poolColorG = null;
+let poolColorB = null;
+let poolOpacities = null;
+let poolProcessedPixels = null;
+let poolBrightnessValues = null;
+let poolCurrentSize = 0;
+
+function ensureBufferPool(pixelCount) {
+    if (poolCurrentSize >= pixelCount) {
+        return; // Buffers are already large enough
+    }
+
+    // Allocate with some extra room to avoid frequent reallocations
+    const newSize = Math.max(pixelCount, poolCurrentSize * 2, 1024 * 1024);
+
+    poolColorR = new Uint8Array(newSize);
+    poolColorG = new Uint8Array(newSize);
+    poolColorB = new Uint8Array(newSize);
+    poolOpacities = new Float32Array(newSize);
+    poolProcessedPixels = new Uint8Array(newSize * 4);
+    poolBrightnessValues = new Float32Array(newSize);
+    poolCurrentSize = newSize;
+}
+
 // JS fallback functions
 function getBrightness(r, g, b) {
     return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
@@ -220,7 +249,12 @@ function quantizeColors(pixels, numColors, saturation = 1) {
 // WASM-accelerated brightness mapping
 function brightnessMapping(pixels, width, height, settings) {
     const pixelCount = width * height;
-    let brightnessValues;
+
+    // Ensure buffer pool is ready
+    ensureBufferPool(pixelCount);
+
+    // Use pooled buffer for brightness values
+    const brightnessValues = poolBrightnessValues;
 
     if (wasm && pixelCount <= 1024 * 1024) {
         // Use WASM
@@ -240,12 +274,10 @@ function brightnessMapping(pixels, width, height, settings) {
             wasm.apply_contrast(pixelCount, settings.contrast);
         }
 
-        // Copy brightness values from WASM
-        brightnessValues = new Float32Array(pixelCount);
+        // Copy brightness values from WASM to pooled buffer
         brightnessValues.set(wasmFloatBuffer.subarray(0, pixelCount));
     } else {
-        // JS fallback
-        brightnessValues = new Float32Array(pixelCount);
+        // JS fallback - write directly to pooled buffer
         for (let i = 0; i < pixelCount; i++) {
             const pi = i * 4;
             brightnessValues[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
@@ -281,6 +313,9 @@ function applyColorToAscii(ascii, pixels, width, height, brightnessData, setting
     const pixelCount = width * height;
     const useWasm = wasm && pixelCount <= 1024 * 1024;
 
+    // Ensure buffer pool is ready
+    ensureBufferPool(pixelCount);
+
     // Use WASM for palette mapping and saturation if available
     let processedPixels = pixels;
 
@@ -305,16 +340,16 @@ function applyColorToAscii(ascii, pixels, width, height, brightnessData, setting
             wasm.apply_saturation(pixelCount, settings.saturation);
         }
 
-        // Create new array with processed pixels
-        processedPixels = new Uint8Array(pixelCount * 4);
-        processedPixels.set(wasmBuffer.subarray(0, pixelCount * 4));
+        // Copy processed pixels to pooled buffer (reuse, no allocation)
+        poolProcessedPixels.set(wasmBuffer.subarray(0, pixelCount * 4));
+        processedPixels = poolProcessedPixels;
     }
 
-    // Pre-compute all colors into typed arrays to avoid per-pixel allocations
-    const colorR = new Uint8Array(pixelCount);
-    const colorG = new Uint8Array(pixelCount);
-    const colorB = new Uint8Array(pixelCount);
-    const opacities = new Float32Array(pixelCount);
+    // Use pooled buffers instead of allocating new ones
+    const colorR = poolColorR;
+    const colorG = poolColorG;
+    const colorB = poolColorB;
+    const opacities = poolOpacities;
 
     const doBlend = settings.blend !== 0.5 && brightnessData;
     const doBrightnessOpacity = settings.brightnessOpacity && brightnessData;
@@ -428,6 +463,9 @@ function processMonoBrightnessOpacity(ascii, pixels, width, height, settings) {
     const { fgR, fgG, fgB, baseOpacity, invert } = settings;
     const pixelCount = width * height;
 
+    // Ensure buffer pool is ready
+    ensureBufferPool(pixelCount);
+
     // Calculate brightness using WASM if available
     let brightnessValues;
     if (wasm && pixelCount <= 1024 * 1024) {
@@ -435,15 +473,16 @@ function processMonoBrightnessOpacity(ascii, pixels, width, height, settings) {
         wasm.calc_brightness_batch(pixelCount);
         brightnessValues = wasmFloatBuffer;
     } else {
-        brightnessValues = new Float32Array(pixelCount);
+        // Use pooled buffer for JS fallback
+        brightnessValues = poolBrightnessValues;
         for (let i = 0; i < pixelCount; i++) {
             const pi = i * 4;
             brightnessValues[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
         }
     }
 
-    // Pre-compute opacities
-    const opacities = new Float32Array(pixelCount);
+    // Use pooled buffer for opacities
+    const opacities = poolOpacities;
     for (let i = 0; i < pixelCount; i++) {
         let brightness = brightnessValues[i];
         if (invert) brightness = 1 - brightness;
