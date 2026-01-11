@@ -112,6 +112,33 @@
             height: fit-content;
             max-height: calc(100vh - 140px);
             overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: transparent transparent;
+        }
+
+        .controls:hover {
+            scrollbar-color: var(--border-color) transparent;
+        }
+
+        .controls::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .controls::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .controls::-webkit-scrollbar-thumb {
+            background: transparent;
+            border-radius: 3px;
+        }
+
+        .controls:hover::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+        }
+
+        .controls::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
         }
 
         .control-section {
