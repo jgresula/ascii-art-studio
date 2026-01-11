@@ -557,7 +557,13 @@
                         <div class="setting-row">
                             <label for="chars-per-row">Characters per row</label>
                             <input type="range" id="chars-per-row" min="20" max="300" value="100">
-                            <div class="setting-value"><span id="chars-value">100</span> chars</div>
+                            <div class="setting-value"><span id="chars-value">100</span></div>
+                        </div>
+
+                        <div class="setting-row">
+                            <label for="font-size">Font Size</label>
+                            <input type="range" id="font-size" min="4" max="20" value="10">
+                            <div class="setting-value"><span id="font-size-value">10</span>px</div>
                         </div>
 
                         <div class="setting-row">
@@ -568,20 +574,14 @@
                         </div>
 
                         <div class="setting-row">
-                            <label for="font-size">Font Size</label>
-                            <input type="range" id="font-size" min="4" max="20" value="10">
-                            <div class="setting-value"><span id="font-size-value">10</span>px</div>
-                        </div>
-
-                        <div class="setting-row">
-                            <label>Character Ratio (width/height)</label>
-                            <div class="inline-group">
-                                <input type="number" id="char-ratio" step="0.01" min="0.1" max="2" value="0.5">
-                                <div class="checkbox-row">
-                                    <input type="checkbox" id="auto-ratio" checked>
-                                    <label for="auto-ratio" style="margin: 0;">Auto</label>
-                                </div>
-                            </div>
+                            <label for="char-ratio">
+                                Char Ratio
+                                <span style="font-weight: normal; color: var(--text-secondary);">
+                                    (<input type="checkbox" id="auto-ratio" checked style="margin: 0 4px 0 0; vertical-align: middle;"><label for="auto-ratio" style="margin: 0; font-weight: normal; cursor: pointer;">auto</label>)
+                                </span>
+                            </label>
+                            <input type="range" id="char-ratio" step="0.1" min="0.3" max="1.0" value="0.5">
+                            <div class="setting-value"><span id="char-ratio-value">0.5</span></div>
                         </div>
                     </div>
                 </div>
@@ -1005,6 +1005,7 @@
         const fontSize = document.getElementById('font-size');
         const fontSizeValue = document.getElementById('font-size-value');
         const charRatio = document.getElementById('char-ratio');
+        const charRatioValue = document.getElementById('char-ratio-value');
         const autoRatio = document.getElementById('auto-ratio');
 
         // Brightness settings
@@ -1206,6 +1207,7 @@
             // Initialize all slider value displays from actual slider values
             fontSizeValue.textContent = fontSize.value;
             charsValue.textContent = charsPerRow.value;
+            charRatioValue.textContent = charRatio.value;
             contrastAmountValue.textContent = contrastAmount.value;
             edgeThresholdValue.textContent = edgeThreshold.value;
             ditherStrengthValue.textContent = ditherStrength.value;
@@ -1358,6 +1360,7 @@
             });
 
             charRatio.addEventListener('input', () => {
+                charRatioValue.textContent = charRatio.value;
                 if (!autoRatio.checked && currentImage) convertToAscii();
             });
 
@@ -1450,7 +1453,9 @@
 
             const measured = measureCharCell();
             cachedCharRatio = measured.width / measured.height;
-            charRatio.value = cachedCharRatio.toFixed(3);
+            // Round to 1 decimal for slider compatibility
+            charRatio.value = cachedCharRatio.toFixed(1);
+            charRatioValue.textContent = cachedCharRatio.toFixed(1);
         }
 
         function updateAlgorithmPanel() {
