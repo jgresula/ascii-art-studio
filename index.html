@@ -2691,17 +2691,21 @@
             canvas.width = canvasWidth;
             canvas.height = canvasHeight;
 
-            // Fill background
+            // Fill background (skip for brightness-as-opacity to preserve transparency)
             const isMono = colorMode.value === 'monochrome';
-            const bgColor = isMono ? monoBg.value : (isDarkMode() ? '#0d0d0d' : '#ffffff');
-            ctx.fillStyle = bgColor;
-            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+            const useBrightnessOpacity = brightnessOpacity.checked;
+            if (!useBrightnessOpacity) {
+                const bgColor = isMono ? monoBg.value : (isDarkMode() ? '#0d0d0d' : '#ffffff');
+                ctx.fillStyle = bgColor;
+                ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+            }
+            // else: canvas starts transparent, alpha channel will be preserved
 
             // Set font
             ctx.font = `${fontSize.value}px ${fontFamily.value}`;
             ctx.textBaseline = 'top';
 
-            if (isColored || (isMono && brightnessOpacity.checked)) {
+            if (isColored || (isMono && useBrightnessOpacity)) {
                 // Parse colored HTML and render each character with opacity support
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = lastColoredHtml;
