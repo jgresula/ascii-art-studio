@@ -821,6 +821,7 @@
                         </div>
                         <div class="copy-buttons" id="gif-export-controls" style="margin-top: 8px; display: none;">
                             <button class="btn btn-primary" id="download-gif-btn">Record GIF</button>
+                            <button class="btn btn-primary" id="download-video-btn">Record Video</button>
                             <span id="gif-status" style="font-size: 12px; color: var(--text-muted);"></span>
                         </div>
                     </div>
@@ -1279,6 +1280,13 @@
         const GIF_MAX_DURATION = 10000; // 10 seconds max
         const GIF_FRAME_INTERVAL = 100; // 10 FPS for GIF
 
+        // Video recording state (MediaRecorder)
+        let isRecordingVideo = false;
+        let mediaRecorder = null;
+        let videoChunks = [];
+        let videoStartTime = 0;
+        const VIDEO_MAX_DURATION = 30000; // 30 seconds max
+
         // DOM Elements
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
@@ -1310,6 +1318,7 @@
         const downloadPngBtn = document.getElementById('download-png-btn');
         const gifExportControls = document.getElementById('gif-export-controls');
         const downloadGifBtn = document.getElementById('download-gif-btn');
+        const downloadVideoBtn = document.getElementById('download-video-btn');
         const gifStatus = document.getElementById('gif-status');
         const settingsPreset = document.getElementById('settings-preset');
         const saveSettingsPresetBtn = document.getElementById('save-settings-preset-btn');
@@ -1710,6 +1719,13 @@
                     stopGifRecording(true);
                 } else {
                     startGifRecording();
+                }
+            });
+            downloadVideoBtn.addEventListener('click', () => {
+                if (isRecordingVideo) {
+                    stopVideoRecording();
+                } else {
+                    startVideoRecording();
                 }
             });
 
@@ -2274,9 +2290,12 @@
                 cancelAnimationFrame(videoAnimationId);
                 videoAnimationId = null;
             }
-            // Stop any GIF recording and clear frames
+            // Stop any GIF/video recording and clear frames
             if (isRecordingGif) {
                 stopGifRecording(false);
+            }
+            if (isRecordingVideo) {
+                stopVideoRecording();
             }
             gifFrames = [];
             videoFps.style.display = 'none';
@@ -2483,6 +2502,115 @@
             });
 
             gif.render();
+        }
+
+        // Video Recording (MediaRecorder API)
+        function startVideoRecording() {
+            if (!isVideoPlaying) {
+                showToast('Play the video first to record');
+                return;
+            }
+
+            // Check if canvas mode is active
+            if (asciiCanvas.style.display === 'none' || asciiCanvas.width === 0) {
+                showToast('Canvas not ready for recording');
+                return;
+            }
+
+            // Get canvas stream
+            const stream = asciiCanvas.captureStream(30); // 30 FPS
+
+            // Determine supported MIME type
+            const mimeTypes = [
+                'video/webm;codecs=vp9',
+                'video/webm;codecs=vp8',
+                'video/webm',
+                'video/mp4'
+            ];
+            let mimeType = '';
+            for (const type of mimeTypes) {
+                if (MediaRecorder.isTypeSupported(type)) {
+                    mimeType = type;
+                    break;
+                }
+            }
+
+            if (!mimeType) {
+                showToast('Video recording not supported in this browser');
+                return;
+            }
+
+            try {
+                videoChunks = [];
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType,
+                    videoBitsPerSecond: 5000000 // 5 Mbps
+                });
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) {
+                        videoChunks.push(e.data);
+                    }
+                };
+
+                mediaRecorder.onstop = () => {
+                    // Create blob and download
+                    const blob = new Blob(videoChunks, { type: mimeType });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `ascii-video.${mimeType.includes('mp4') ? 'mp4' : 'webm'}`;
+                    a.style.display = 'none';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+
+                    gifStatus.textContent = '';
+                    videoChunks = [];
+                    showToast('Video downloaded!');
+                };
+
+                mediaRecorder.start(100); // Collect data every 100ms
+                isRecordingVideo = true;
+                videoStartTime = performance.now();
+                downloadVideoBtn.textContent = '⏹ Stop';
+                downloadVideoBtn.classList.add('recording');
+                gifStatus.textContent = 'Recording video...';
+
+                // Auto-stop after max duration
+                requestAnimationFrame(videoRecordingLoop);
+            } catch (e) {
+                console.error('Failed to start video recording:', e);
+                showToast('Failed to start recording');
+            }
+        }
+
+        function videoRecordingLoop() {
+            if (!isRecordingVideo) return;
+
+            const elapsed = performance.now() - videoStartTime;
+            gifStatus.textContent = `Recording... ${(elapsed / 1000).toFixed(1)}s`;
+
+            if (elapsed >= VIDEO_MAX_DURATION || !isVideoPlaying) {
+                stopVideoRecording();
+                return;
+            }
+
+            requestAnimationFrame(videoRecordingLoop);
+        }
+
+        function stopVideoRecording() {
+            if (!isRecordingVideo || !mediaRecorder) return;
+
+            isRecordingVideo = false;
+            downloadVideoBtn.textContent = 'Record Video';
+            downloadVideoBtn.classList.remove('recording');
+
+            if (mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            mediaRecorder = null;
         }
 
         function loadFromUrl() {
