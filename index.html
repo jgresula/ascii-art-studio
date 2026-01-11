@@ -900,6 +900,7 @@
             setupEventListeners();
             updateDisplaySettings();
             updateCharRatio();
+            updateAlgorithmPanel();
 
             // Listen for system theme changes
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
@@ -1622,29 +1623,12 @@
                 html = `<pre style="${baseStyles} color: ${textColor};">${escapeHtml(text)}</pre>`;
             }
 
-            // Use Selection API for better browser compatibility (especially Firefox)
-            const temp = document.createElement('div');
-            temp.innerHTML = html;
-            temp.style.position = 'fixed';
-            temp.style.left = '-9999px';
-            temp.style.top = '0';
-            document.body.appendChild(temp);
-
-            const range = document.createRange();
-            range.selectNodeContents(temp);
-            const selection = window.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(range);
-
-            try {
-                document.execCommand('copy');
-                showToast('Copied as HTML!');
-            } catch (e) {
+            // Copy HTML source code as plain text
+            navigator.clipboard.writeText(html).then(() => {
+                showToast('Copied HTML code!');
+            }).catch(() => {
                 showToast('Failed to copy');
-            }
-
-            selection.removeAllRanges();
-            document.body.removeChild(temp);
+            });
         }
 
         function copyAsMarkdown() {
