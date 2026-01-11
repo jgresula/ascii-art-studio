@@ -1223,6 +1223,10 @@
         let videoFrameCanvas = null;
         let videoFrameCtx = null;
 
+        // Reusable canvas for image scaling (optimization #3)
+        let scalingCanvas = null;
+        let scalingCtx = null;
+
         // GIF recording state
         let isRecordingGif = false;
         let gifFrames = [];
@@ -2532,17 +2536,19 @@
                 const mode = colorMode.value;
                 const asciiContainer = asciiOutput.parentElement;
 
+                // Get image data once for all color/brightness operations
+                const { imageData } = getScaledImageData(currentImage, result.width);
+                const pixels = imageData.data;
+
                 if (mode !== 'monochrome') {
-                    // Get brightness data for blending
-                    const { imageData } = getScaledImageData(currentImage, result.width);
-                    const pixels = imageData.data;
+                    // Calculate brightness data for blending
                     const brightnessData = new Float32Array(result.width * result.height);
                     for (let i = 0; i < brightnessData.length; i++) {
                         const pi = i * 4;
                         brightnessData[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
                     }
 
-                    const html = applyColorToAscii(result.ascii, result.width, result.height, brightnessData);
+                    const html = applyColorToAscii(result.ascii, result.width, result.height, pixels, brightnessData);
                     if (html) {
                         asciiOutput.innerHTML = html;
                         lastColoredHtml = html;
@@ -2558,8 +2564,6 @@
 
                     if (useBrightnessOpacity) {
                         // Need spans for per-character opacity
-                        const { imageData } = getScaledImageData(currentImage, result.width);
-                        const pixels = imageData.data;
                         const invert = invertBrightness.checked;
                         const fg = monoFg.value;
                         // Parse hex color to RGB
@@ -2568,8 +2572,11 @@
                         const fgB = parseInt(fg.slice(5, 7), 16);
 
                         const lines = result.ascii.split('\n');
-                        let html = '';
+                        const parts = []; // Use array for O(n) concatenation
                         for (let y = 0; y < result.height; y++) {
+                            let currentOpacity = null;
+                            let currentChars = '';
+
                             for (let x = 0; x < result.width; x++) {
                                 const char = lines[y] ? lines[y][x] : ' ';
                                 if (!char) continue;
@@ -2577,13 +2584,25 @@
                                 const pi = (y * result.width + x) * 4;
                                 let brightness = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
                                 if (invert) brightness = 1 - brightness;
-                                const opacity = baseOpacity * (1 - brightness);
+                                const opacity = (baseOpacity * (1 - brightness)).toFixed(2);
 
-                                const escaped = escapeHtml(char);
-                                html += `<span style="color:rgba(${fgR},${fgG},${fgB},${opacity.toFixed(2)})">${escaped}</span>`;
+                                // Combine adjacent same-opacity characters
+                                if (opacity === currentOpacity) {
+                                    currentChars += escapeHtml(char);
+                                } else {
+                                    if (currentOpacity !== null) {
+                                        parts.push(`<span style="color:rgba(${fgR},${fgG},${fgB},${currentOpacity})">${currentChars}</span>`);
+                                    }
+                                    currentOpacity = opacity;
+                                    currentChars = escapeHtml(char);
+                                }
                             }
-                            html += '\n';
+                            if (currentOpacity !== null) {
+                                parts.push(`<span style="color:rgba(${fgR},${fgG},${fgB},${currentOpacity})">${currentChars}</span>`);
+                            }
+                            parts.push('\n');
                         }
+                        const html = parts.join('');
                         asciiOutput.innerHTML = html;
                         asciiOutput.style.opacity = '';
                         lastColoredHtml = html;
@@ -2607,17 +2626,15 @@
             }, 10);
         }
 
-        // Apply color to ASCII output
-        function applyColorToAscii(ascii, width, height, brightnessData) {
+        // Apply color to ASCII output (pixels passed in to avoid duplicate getScaledImageData)
+        // Optimized with Array.join() and span combining for adjacent same-color chars
+        function applyColorToAscii(ascii, width, height, pixels, brightnessData) {
             const mode = colorMode.value;
 
             // Monochrome mode - just return plain text
             if (mode === 'monochrome') {
                 return null;
             }
-
-            const { imageData } = getScaledImageData(currentImage, width);
-            const pixels = imageData.data;
             const saturation = parseInt(colorSaturation.value) / 100;
             const blend = parseInt(brightnessBlend.value) / 100;
             const baseOpacity = parseInt(globalOpacity.value) / 100;
@@ -2642,9 +2659,20 @@
             }
 
             const lines = ascii.split('\n');
-            let html = '';
+            const parts = []; // Use array for O(n) concatenation
+
+            // Helper to get color string
+            function getColorString(r, g, b, opacity) {
+                if (opacity < 1) {
+                    return `rgba(${r},${g},${b},${opacity.toFixed(2)})`;
+                }
+                return `rgb(${r},${g},${b})`;
+            }
 
             for (let y = 0; y < height; y++) {
+                let currentColor = null;
+                let currentChars = '';
+
                 for (let x = 0; x < width; x++) {
                     const char = lines[y] ? lines[y][x] : ' ';
                     if (!char) continue;
@@ -2670,16 +2698,14 @@
                         b = Math.round(gray + saturation * (b - gray));
                     }
 
-                    // Apply brightness blend (50% = neutral, <50% = brighten dark areas, >50% = darken dark areas)
+                    // Apply brightness blend
                     if (blend !== 0.5 && brightnessData) {
                         const charBrightness = brightnessData[y * width + x];
-                        const adjustedBlend = (blend - 0.5) * 2; // -1 to +1
+                        const adjustedBlend = (blend - 0.5) * 2;
                         let factor;
                         if (adjustedBlend >= 0) {
-                            // Darken dark areas proportional to their darkness
                             factor = 1 - adjustedBlend * (1 - charBrightness);
                         } else {
-                            // Brighten dark areas proportional to their darkness
                             factor = 1 + Math.abs(adjustedBlend) * (1 - charBrightness);
                         }
                         r = Math.round(r * factor);
@@ -2695,7 +2721,6 @@
                     // Calculate opacity
                     let opacity = baseOpacity;
                     if (useBrightnessOpacity && brightnessData) {
-                        // Dark areas = opaque, light areas = transparent (or inverted)
                         let charBrightness = brightnessData[y * width + x];
                         if (invert) {
                             charBrightness = 1 - charBrightness;
@@ -2703,35 +2728,55 @@
                         opacity *= (1 - charBrightness);
                     }
 
-                    const escaped = escapeHtml(char);
-                    if (opacity < 1) {
-                        html += `<span style="color:rgba(${r},${g},${b},${opacity.toFixed(2)})">${escaped}</span>`;
+                    const colorStr = getColorString(r, g, b, opacity);
+
+                    // Combine adjacent same-color characters into single span
+                    if (colorStr === currentColor) {
+                        currentChars += escapeHtml(char);
                     } else {
-                        html += `<span style="color:rgb(${r},${g},${b})">${escaped}</span>`;
+                        // Flush previous span
+                        if (currentColor !== null) {
+                            parts.push(`<span style="color:${currentColor}">${currentChars}</span>`);
+                        }
+                        currentColor = colorStr;
+                        currentChars = escapeHtml(char);
                     }
                 }
-                html += '\n';
+
+                // Flush last span of the line
+                if (currentColor !== null) {
+                    parts.push(`<span style="color:${currentColor}">${currentChars}</span>`);
+                }
+                parts.push('\n');
             }
 
-            return html;
+            return parts.join('');
         }
 
-        // Get scaled image data
+        // Get scaled image data (reuses canvas for performance)
         function getScaledImageData(img, width) {
             const ratio = getCharRatio();
             const imgAspect = img.height / img.width;
             const height = Math.max(1, Math.round(width * imgAspect * ratio));
 
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d', { willReadFrequently: true });
-            canvas.width = width;
-            canvas.height = height;
+            // Reuse canvas if possible, create if needed
+            if (!scalingCanvas) {
+                scalingCanvas = document.createElement('canvas');
+                scalingCtx = scalingCanvas.getContext('2d', { willReadFrequently: true });
+            }
+
+            // Resize only if dimensions changed
+            if (scalingCanvas.width !== width || scalingCanvas.height !== height) {
+                scalingCanvas.width = width;
+                scalingCanvas.height = height;
+            }
+
             // Support video proxy objects with _source property
             const source = img._source || img;
-            ctx.drawImage(source, 0, 0, width, height);
+            scalingCtx.drawImage(source, 0, 0, width, height);
 
             return {
-                imageData: ctx.getImageData(0, 0, width, height),
+                imageData: scalingCtx.getImageData(0, 0, width, height),
                 width,
                 height
             };
