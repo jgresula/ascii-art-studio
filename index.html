@@ -753,10 +753,6 @@
                         </div>
                     </div>
                 </div>
-
-                <button class="btn btn-secondary btn-block" id="reset-settings-btn" style="margin-top: 16px;">
-                    Reset All Settings
-                </button>
             </aside>
 
             <main class="output-area">
@@ -832,7 +828,7 @@
             // Output
             colorMode: 'truecolor',
             invertBrightness: true,
-            histogramEq: false,
+            histogramEq: true,
             contrast: 100,
             brightnessBlend: 50,
             saturation: 100,
@@ -903,6 +899,33 @@
                     ...DEFAULT_SETTINGS,
                     colorMode: 'adaptive16',
                     contrast: 110
+                }
+            },
+            'grayscale': {
+                name: 'Grayscale',
+                settings: {
+                    ...DEFAULT_SETTINGS,
+                    colorMode: 'adaptive16',
+                    saturation: 0
+                }
+            },
+            'blocks': {
+                name: 'Blocks',
+                settings: {
+                    ...DEFAULT_SETTINGS,
+                    charSetPreset: 'blocks',
+                    customChars: '█▓▒░ ',
+                    colorMode: 'truecolor'
+                }
+            },
+            'blocks-grayscale': {
+                name: 'Blocks Grayscale',
+                settings: {
+                    ...DEFAULT_SETTINGS,
+                    charSetPreset: 'blocks',
+                    customChars: '█▓▒░ ',
+                    colorMode: 'adaptive16',
+                    saturation: 0
                 }
             }
         };
@@ -1122,7 +1145,6 @@
         const copyHtmlBtn = document.getElementById('copy-html-btn');
         const copyMarkdownBtn = document.getElementById('copy-markdown-btn');
         const downloadPngBtn = document.getElementById('download-png-btn');
-        const resetSettingsBtn = document.getElementById('reset-settings-btn');
         const settingsPreset = document.getElementById('settings-preset');
         const saveSettingsPresetBtn = document.getElementById('save-settings-preset-btn');
         const deleteSettingsPresetBtn = document.getElementById('delete-settings-preset-btn');
@@ -1577,7 +1599,6 @@
             copyHtmlBtn.addEventListener('click', copyAsHtml);
             copyMarkdownBtn.addEventListener('click', copyAsMarkdown);
             downloadPngBtn.addEventListener('click', downloadAsPng);
-            resetSettingsBtn.addEventListener('click', resetAllSettings);
 
             // Settings presets
             settingsPreset.addEventListener('change', handleSettingsPresetChange);
@@ -1799,13 +1820,6 @@
                 applySettings(SETTINGS_PRESETS[value].settings);
             }
             updateSettingsDeleteButtonVisibility();
-        }
-
-        function resetAllSettings() {
-            applySettings(DEFAULT_SETTINGS);
-            settingsPreset.value = 'default';
-            updateSettingsDeleteButtonVisibility();
-            showToast('Settings reset to defaults');
         }
 
         function updateDisplaySettings() {
