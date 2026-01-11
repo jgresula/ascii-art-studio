@@ -593,15 +593,15 @@
                             <label for="algorithm">Method</label>
                             <select id="algorithm">
                                 <option value="brightness">Brightness Mapping</option>
-                                <option value="edge">Edge Detection</option>
                                 <option value="dithering">Floyd-Steinberg Dithering</option>
                                 <option value="pattern">Block Pattern Matching</option>
+                                <option value="edge">Edge Detection</option>
                             </select>
                         </div>
 
                         <div class="algo-settings" id="algo-settings">
-                            <!-- Brightness Mapping Settings -->
-                            <div class="algo-settings-panel active" id="settings-brightness">
+                            <!-- Character Set (shared by brightness and dithering) -->
+                            <div class="algo-settings-panel" id="settings-charset">
                                 <div class="setting-row">
                                     <label for="char-set">Character Set</label>
                                     <div class="inline-group">
@@ -633,21 +633,21 @@
                                 </div>
                             </div>
 
-                            <!-- Edge Detection Settings -->
-                            <div class="algo-settings-panel" id="settings-edge">
-                                <div class="setting-row">
-                                    <label for="edge-threshold">Edge Threshold</label>
-                                    <input type="range" id="edge-threshold" min="10" max="200" value="50">
-                                    <div class="setting-value"><span id="edge-threshold-value">50</span></div>
-                                </div>
-                            </div>
-
                             <!-- Dithering Settings -->
                             <div class="algo-settings-panel" id="settings-dithering">
                                 <div class="setting-row">
                                     <label for="dither-strength">Error Diffusion Strength</label>
                                     <input type="range" id="dither-strength" min="0" max="100" value="100">
                                     <div class="setting-value"><span id="dither-strength-value">100</span>%</div>
+                                </div>
+                            </div>
+
+                            <!-- Edge Detection Settings -->
+                            <div class="algo-settings-panel" id="settings-edge">
+                                <div class="setting-row">
+                                    <label for="edge-threshold">Edge Threshold</label>
+                                    <input type="range" id="edge-threshold" min="10" max="200" value="50">
+                                    <div class="setting-value"><span id="edge-threshold-value">50</span></div>
                                 </div>
                             </div>
 
@@ -1454,12 +1454,23 @@
         }
 
         function updateAlgorithmPanel() {
+            const algo = algorithm.value;
             document.querySelectorAll('.algo-settings-panel').forEach(panel => {
                 panel.classList.remove('active');
             });
-            const activePanel = document.getElementById('settings-' + algorithm.value);
-            if (activePanel) {
-                activePanel.classList.add('active');
+
+            // Character set is shared by brightness and dithering
+            if (algo === 'brightness' || algo === 'dithering') {
+                document.getElementById('settings-charset').classList.add('active');
+            }
+
+            // Algorithm-specific panels
+            if (algo === 'dithering') {
+                document.getElementById('settings-dithering').classList.add('active');
+            } else if (algo === 'edge') {
+                document.getElementById('settings-edge').classList.add('active');
+            } else if (algo === 'pattern') {
+                document.getElementById('settings-pattern').classList.add('active');
             }
         }
 
