@@ -639,13 +639,24 @@
                     </div>
 
                     <div class="setting-row">
-                        <div class="checkbox-row">
-                            <input type="checkbox" id="colored-output">
-                            <label for="colored-output" style="margin: 0;">Colored output</label>
-                        </div>
+                        <label for="color-mode">Color Mode</label>
+                        <select id="color-mode">
+                            <option value="monochrome">Monochrome</option>
+                            <option value="adaptive4">Adaptive 4 colors</option>
+                            <option value="adaptive8">Adaptive 8 colors</option>
+                            <option value="adaptive16">Adaptive 16 colors</option>
+                            <option value="ansi256">ANSI 256 colors</option>
+                            <option value="truecolor">True color</option>
+                        </select>
                     </div>
 
-                    <div class="setting-row" id="saturation-row" style="display: none;">
+                    <div class="setting-row color-settings" style="display: none;">
+                        <label for="brightness-blend">Brightness blend</label>
+                        <input type="range" id="brightness-blend" min="0" max="100" value="50">
+                        <div class="setting-value"><span id="brightness-blend-value">50</span>%</div>
+                    </div>
+
+                    <div class="setting-row color-settings" style="display: none;">
                         <label for="color-saturation">Saturation</label>
                         <input type="range" id="color-saturation" min="0" max="200" value="100">
                         <div class="setting-value"><span id="color-saturation-value">100</span>%</div>
@@ -710,9 +721,121 @@
             none: ' '
         };
 
+        // ANSI 256 color palette (standard xterm colors)
+        const ANSI_256 = (function() {
+            const colors = [];
+            // Standard colors (0-15)
+            const standard = [
+                [0,0,0], [128,0,0], [0,128,0], [128,128,0],
+                [0,0,128], [128,0,128], [0,128,128], [192,192,192],
+                [128,128,128], [255,0,0], [0,255,0], [255,255,0],
+                [0,0,255], [255,0,255], [0,255,255], [255,255,255]
+            ];
+            colors.push(...standard);
+            // 216 color cube (16-231)
+            for (let r = 0; r < 6; r++) {
+                for (let g = 0; g < 6; g++) {
+                    for (let b = 0; b < 6; b++) {
+                        colors.push([r ? r * 40 + 55 : 0, g ? g * 40 + 55 : 0, b ? b * 40 + 55 : 0]);
+                    }
+                }
+            }
+            // Grayscale (232-255)
+            for (let i = 0; i < 24; i++) {
+                const v = i * 10 + 8;
+                colors.push([v, v, v]);
+            }
+            return colors;
+        })();
+
+        // Median cut color quantization
+        function quantizeColors(pixels, numColors) {
+            // Collect unique colors (sample for performance)
+            const colorMap = new Map();
+            const step = Math.max(1, Math.floor(pixels.length / 4 / 10000)); // Sample max ~10k pixels
+            for (let i = 0; i < pixels.length; i += 4 * step) {
+                const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
+                const key = (r << 16) | (g << 8) | b;
+                colorMap.set(key, (colorMap.get(key) || 0) + 1);
+            }
+
+            // Convert to array of [r, g, b, count]
+            let colorList = [];
+            for (const [key, count] of colorMap) {
+                colorList.push([
+                    (key >> 16) & 0xff,
+                    (key >> 8) & 0xff,
+                    key & 0xff,
+                    count
+                ]);
+            }
+
+            if (colorList.length <= numColors) {
+                return colorList.map(c => [c[0], c[1], c[2]]);
+            }
+
+            // Median cut algorithm
+            function getRange(colors, channel) {
+                let min = 255, max = 0;
+                for (const c of colors) {
+                    if (c[channel] < min) min = c[channel];
+                    if (c[channel] > max) max = c[channel];
+                }
+                return max - min;
+            }
+
+            function medianCut(colors, depth) {
+                if (depth === 0 || colors.length <= 1) {
+                    // Average the colors in this bucket
+                    let tr = 0, tg = 0, tb = 0, tw = 0;
+                    for (const c of colors) {
+                        tr += c[0] * c[3];
+                        tg += c[1] * c[3];
+                        tb += c[2] * c[3];
+                        tw += c[3];
+                    }
+                    if (tw === 0) return [];
+                    return [[Math.round(tr / tw), Math.round(tg / tw), Math.round(tb / tw)]];
+                }
+
+                // Find channel with largest range
+                const ranges = [getRange(colors, 0), getRange(colors, 1), getRange(colors, 2)];
+                const channel = ranges.indexOf(Math.max(...ranges));
+
+                // Sort by that channel
+                colors.sort((a, b) => a[channel] - b[channel]);
+
+                // Split at median
+                const mid = Math.floor(colors.length / 2);
+                return [
+                    ...medianCut(colors.slice(0, mid), depth - 1),
+                    ...medianCut(colors.slice(mid), depth - 1)
+                ];
+            }
+
+            const depth = Math.ceil(Math.log2(numColors));
+            return medianCut(colorList, depth).slice(0, numColors);
+        }
+
+        // Find nearest color in palette
+        function nearestColor(r, g, b, palette) {
+            let minDist = Infinity;
+            let nearest = palette[0];
+            for (const c of palette) {
+                const dr = r - c[0], dg = g - c[1], db = b - c[2];
+                const dist = dr * dr + dg * dg + db * db;
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearest = c;
+                }
+            }
+            return nearest;
+        }
+
         // State
         let currentImage = null;
         let cachedCharRatio = null;
+        let cachedPalette = null;
         let lastColoredHtml = '';
 
         // DOM Elements
@@ -767,8 +890,10 @@
         const contrastAmount = document.getElementById('contrast-amount');
         const contrastAmountValue = document.getElementById('contrast-amount-value');
         const contrastHistogram = document.getElementById('contrast-histogram');
-        const coloredOutput = document.getElementById('colored-output');
-        const saturationRow = document.getElementById('saturation-row');
+        const colorMode = document.getElementById('color-mode');
+        const colorSettings = document.querySelectorAll('.color-settings');
+        const brightnessBlend = document.getElementById('brightness-blend');
+        const brightnessBlendValue = document.getElementById('brightness-blend-value');
         const colorSaturation = document.getElementById('color-saturation');
         const colorSaturationValue = document.getElementById('color-saturation-value');
 
@@ -982,8 +1107,14 @@
                 if (currentImage) convertToAscii();
             });
             contrastHistogram.addEventListener('change', () => { if (currentImage) convertToAscii(); });
-            coloredOutput.addEventListener('change', () => {
-                saturationRow.style.display = coloredOutput.checked ? 'block' : 'none';
+            colorMode.addEventListener('change', () => {
+                const show = colorMode.value !== 'monochrome';
+                colorSettings.forEach(el => el.style.display = show ? 'block' : 'none');
+                cachedPalette = null; // Clear palette cache
+                if (currentImage) convertToAscii();
+            });
+            brightnessBlend.addEventListener('input', () => {
+                brightnessBlendValue.textContent = brightnessBlend.value;
                 if (currentImage) convertToAscii();
             });
             colorSaturation.addEventListener('input', () => {
@@ -1081,6 +1212,7 @@
 
             img.onload = () => {
                 currentImage = img;
+                cachedPalette = null; // Clear palette cache for new image
                 showPreview(src);
                 convertToAscii();
             };
@@ -1159,11 +1291,23 @@
                         result = brightnessMapping(currentImage);
                 }
 
-                // Apply color if enabled
-                if (coloredOutput.checked) {
-                    const html = applyColorToAscii(result.ascii, result.width, result.height);
-                    asciiOutput.innerHTML = html;
-                    lastColoredHtml = html;
+                // Apply color based on mode
+                const mode = colorMode.value;
+                if (mode !== 'monochrome') {
+                    // Get brightness data for blending
+                    const { imageData } = getScaledImageData(currentImage, result.width);
+                    const pixels = imageData.data;
+                    const brightnessData = new Float32Array(result.width * result.height);
+                    for (let i = 0; i < brightnessData.length; i++) {
+                        const pi = i * 4;
+                        brightnessData[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
+                    }
+
+                    const html = applyColorToAscii(result.ascii, result.width, result.height, brightnessData);
+                    if (html) {
+                        asciiOutput.innerHTML = html;
+                        lastColoredHtml = html;
+                    }
                 } else {
                     asciiOutput.style.color = 'var(--ascii-text)';
                     asciiOutput.textContent = result.ascii;
@@ -1175,10 +1319,34 @@
         }
 
         // Apply color to ASCII output
-        function applyColorToAscii(ascii, width, height) {
+        function applyColorToAscii(ascii, width, height, brightnessData) {
+            const mode = colorMode.value;
+
+            // Monochrome mode - just return plain text
+            if (mode === 'monochrome') {
+                return null;
+            }
+
             const { imageData } = getScaledImageData(currentImage, width);
             const pixels = imageData.data;
             const saturation = parseInt(colorSaturation.value) / 100;
+            const blend = parseInt(brightnessBlend.value) / 100;
+
+            // Get or build palette
+            let palette = null;
+            if (mode === 'ansi256') {
+                palette = ANSI_256;
+            } else if (mode.startsWith('adaptive')) {
+                const numColors = parseInt(mode.replace('adaptive', ''));
+                // Cache palette for performance
+                if (!cachedPalette || cachedPalette.numColors !== numColors) {
+                    cachedPalette = {
+                        numColors,
+                        colors: quantizeColors(pixels, numColors)
+                    };
+                }
+                palette = cachedPalette.colors;
+            }
 
             const lines = ascii.split('\n');
             let html = '';
@@ -1193,16 +1361,36 @@
                     let g = pixels[i + 1];
                     let b = pixels[i + 2];
 
+                    // Map to palette if not true color
+                    if (palette) {
+                        const nearest = nearestColor(r, g, b, palette);
+                        r = nearest[0];
+                        g = nearest[1];
+                        b = nearest[2];
+                    }
+
                     // Apply saturation
                     if (saturation !== 1) {
                         const gray = 0.299 * r + 0.587 * g + 0.114 * b;
                         r = Math.round(gray + saturation * (r - gray));
                         g = Math.round(gray + saturation * (g - gray));
                         b = Math.round(gray + saturation * (b - gray));
-                        r = Math.max(0, Math.min(255, r));
-                        g = Math.max(0, Math.min(255, g));
-                        b = Math.max(0, Math.min(255, b));
                     }
+
+                    // Apply brightness blend
+                    if (blend > 0 && brightnessData) {
+                        const charBrightness = brightnessData[y * width + x];
+                        // Modulate color by character brightness
+                        const factor = 1 - blend + blend * charBrightness;
+                        r = Math.round(r * factor);
+                        g = Math.round(g * factor);
+                        b = Math.round(b * factor);
+                    }
+
+                    // Clamp values
+                    r = Math.max(0, Math.min(255, r));
+                    g = Math.max(0, Math.min(255, g));
+                    b = Math.max(0, Math.min(255, b));
 
                     const escaped = escapeHtml(char);
                     html += `<span style="color:rgb(${r},${g},${b})">${escaped}</span>`;
@@ -1577,7 +1765,7 @@
         }
 
         function copyAsHtml() {
-            const isColored = coloredOutput.checked && lastColoredHtml;
+            const isColored = colorMode.value !== 'monochrome' && lastColoredHtml;
             const bgColor = isDarkMode() ? '#0d0d0d' : '#ffffff';
             const textColor = isDarkMode() ? '#f0f0f0' : '#000000';
             let html;
@@ -1626,7 +1814,7 @@
                 return;
             }
 
-            const isColored = coloredOutput.checked && lastColoredHtml;
+            const isColored = colorMode.value !== 'monochrome' && lastColoredHtml;
             const lines = text ? text.split('\n').filter(l => l.length > 0) : [];
 
             // Measure character dimensions
