@@ -769,6 +769,15 @@
     <div class="toast" id="toast"></div>
 
     <script>
+        // Debounce utility for smooth slider dragging
+        function debounce(fn, delay) {
+            let timeoutId;
+            return function(...args) {
+                clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => fn.apply(this, args), delay);
+            };
+        }
+
         // Character sets
         const CHAR_SETS = {
             standard: '@%#+=*-:. ',
@@ -1334,6 +1343,11 @@
             updateDeleteButtonVisibility();
         }
 
+        // Debounced conversion for smooth slider dragging
+        const debouncedConvert = debounce(() => {
+            if (currentImage) convertToAscii();
+        }, 30);
+
         function setupEventListeners() {
             // Drop zone
             dropZone.addEventListener('click', () => fileInput.click());
@@ -1364,12 +1378,12 @@
                 fontSizeValue.textContent = fontSize.value;
                 updateDisplaySettings();
                 updateCharRatio();
-                if (currentImage) convertToAscii();
+                debouncedConvert();
             });
 
             charRatio.addEventListener('input', () => {
                 charRatioValue.textContent = charRatio.value;
-                if (!autoRatio.checked && currentImage) convertToAscii();
+                if (!autoRatio.checked) debouncedConvert();
             });
 
             autoRatio.addEventListener('change', () => {
@@ -1383,7 +1397,7 @@
             // Conversion settings
             charsPerRow.addEventListener('input', () => {
                 charsValue.textContent = charsPerRow.value;
-                if (currentImage) convertToAscii();
+                debouncedConvert();
             });
 
             algorithm.addEventListener('change', () => {
@@ -1405,13 +1419,13 @@
             // Edge settings
             edgeThreshold.addEventListener('input', () => {
                 edgeThresholdValue.textContent = edgeThreshold.value;
-                if (currentImage) convertToAscii();
+                debouncedConvert();
             });
 
             // Dithering settings
             ditherStrength.addEventListener('input', () => {
                 ditherStrengthValue.textContent = ditherStrength.value;
-                if (currentImage) convertToAscii();
+                debouncedConvert();
             });
 
             // Pattern settings
@@ -1422,7 +1436,7 @@
             invertBrightness.addEventListener('change', () => { if (currentImage) convertToAscii(); });
             contrastAmount.addEventListener('input', () => {
                 contrastAmountValue.textContent = contrastAmount.value;
-                if (currentImage) convertToAscii();
+                debouncedConvert();
             });
             contrastHistogram.addEventListener('change', () => { if (currentImage) convertToAscii(); });
             colorMode.addEventListener('change', () => {
@@ -1434,14 +1448,14 @@
             });
             brightnessBlend.addEventListener('input', () => {
                 brightnessBlendValue.textContent = brightnessBlend.value;
-                if (currentImage) convertToAscii();
+                debouncedConvert();
             });
             colorSaturation.addEventListener('input', () => {
                 colorSaturationValue.textContent = colorSaturation.value;
-                if (currentImage) convertToAscii();
+                debouncedConvert();
             });
-            monoFg.addEventListener('input', () => { if (currentImage) convertToAscii(); });
-            monoBg.addEventListener('input', () => { if (currentImage) convertToAscii(); });
+            monoFg.addEventListener('input', debouncedConvert);
+            monoBg.addEventListener('input', debouncedConvert);
 
             // Copy buttons
             copyTextBtn.addEventListener('click', copyAsText);
