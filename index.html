@@ -781,11 +781,16 @@
     <div class="toast" id="toast"></div>
 
     <script>
-        // Debounce utility for smooth slider dragging
-        function debounce(fn, delay) {
+        // Adaptive debounce - adjusts delay based on last conversion time
+        let lastConversionTime = 50; // Start with reasonable default
+        const MIN_DEBOUNCE = 20;     // Minimum debounce delay
+        const DEBOUNCE_BUFFER = 10;  // Extra buffer on top of conversion time
+
+        function adaptiveDebounce(fn) {
             let timeoutId;
             return function(...args) {
                 clearTimeout(timeoutId);
+                const delay = Math.max(MIN_DEBOUNCE, lastConversionTime + DEBOUNCE_BUFFER);
                 timeoutId = setTimeout(() => fn.apply(this, args), delay);
             };
         }
@@ -1480,10 +1485,10 @@
             updateDeleteButtonVisibility();
         }
 
-        // Debounced conversion for smooth slider dragging
-        const debouncedConvert = debounce(() => {
+        // Debounced conversion for smooth slider dragging (adaptive delay)
+        const debouncedConvert = adaptiveDebounce(() => {
             if (currentImage) convertToAscii();
-        }, 50);
+        });
 
         function setupEventListeners() {
             // Drop zone
@@ -1975,6 +1980,8 @@
             // Don't clear output here - update in place to prevent flicker
 
             setTimeout(() => {
+                const startTime = performance.now();
+
                 let result;
                 const algo = algorithm.value;
 
@@ -2023,6 +2030,9 @@
                     asciiOutput.textContent = result.ascii;
                     lastColoredHtml = '';
                 }
+
+                // Update adaptive debounce timing
+                lastConversionTime = performance.now() - startTime;
 
                 outputInfo.textContent = `${result.width} × ${result.height} chars`;
                 showLoading(false);
