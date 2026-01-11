@@ -530,10 +530,6 @@
                             <button class="btn btn-primary" id="load-url-btn">Load</button>
                         </div>
 
-                        <button class="btn btn-secondary btn-block" id="load-default-btn" style="margin-top: 12px;">
-                            Load Default Image
-                        </button>
-
                         <div class="preview-section">
                             <h4>Preview</h4>
                             <img id="image-preview" alt="Preview">
@@ -760,7 +756,7 @@
                 <div class="ascii-container">
                     <div class="placeholder-message" id="placeholder">
                         <div class="icon">🖼️</div>
-                        <div>Upload an image or load the default to begin</div>
+                        <div>Loading...</div>
                     </div>
                     <div id="ascii-output"></div>
                 </div>
@@ -992,7 +988,6 @@
         const fileInput = document.getElementById('file-input');
         const urlInput = document.getElementById('url-input');
         const loadUrlBtn = document.getElementById('load-url-btn');
-        const loadDefaultBtn = document.getElementById('load-default-btn');
         const imagePreview = document.getElementById('image-preview');
         const noPreview = document.getElementById('no-preview');
         const charsPerRow = document.getElementById('chars-per-row');
@@ -1174,6 +1169,9 @@
                     if (currentImage) convertToAscii();
                 }
             });
+
+            // Auto-load default image
+            loadDefaultImage();
         }
 
         function setupSectionToggles() {
@@ -1345,9 +1343,6 @@
             urlInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') loadFromUrl();
             });
-
-            // Default image
-            loadDefaultBtn.addEventListener('click', loadDefaultImage);
 
             // Display settings
             themeSelect.addEventListener('change', () => {
