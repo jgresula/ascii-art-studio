@@ -127,6 +127,44 @@
             letter-spacing: 0.5px;
             color: var(--text-secondary);
             margin-bottom: 12px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+
+        .control-section h3::after {
+            content: '▼';
+            font-size: 0.7rem;
+            transition: transform 0.2s ease;
+        }
+
+        .control-section.collapsed h3 {
+            margin-bottom: 0;
+        }
+
+        .control-section.collapsed h3::after {
+            transform: rotate(-90deg);
+        }
+
+        .control-section .section-content {
+            transition: opacity 0.2s ease;
+        }
+
+        .control-section.collapsed .section-content {
+            display: none;
+        }
+
+        /* Color inputs */
+        input[type="color"] {
+            width: 32px;
+            height: 24px;
+            padding: 0;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            background: var(--bg-primary);
         }
 
         /* Drop Zone */
@@ -466,212 +504,230 @@
 
         <div class="main-content">
             <aside class="controls">
-                <div class="control-section">
+                <div class="control-section" data-section="image-source">
                     <h3>Image Source</h3>
-                    <div class="drop-zone" id="drop-zone">
-                        <div class="drop-zone-icon">📁</div>
-                        <div class="drop-zone-text">
-                            <strong>Click to upload</strong> or drag & drop
+                    <div class="section-content">
+                        <div class="drop-zone" id="drop-zone">
+                            <div class="drop-zone-icon">📁</div>
+                            <div class="drop-zone-text">
+                                <strong>Click to upload</strong> or drag & drop
+                            </div>
                         </div>
-                    </div>
-                    <input type="file" id="file-input" accept="image/*">
+                        <input type="file" id="file-input" accept="image/*">
 
-                    <div class="url-input-group">
-                        <input type="text" id="url-input" placeholder="Or paste image URL...">
-                        <button class="btn btn-primary" id="load-url-btn">Load</button>
-                    </div>
+                        <div class="url-input-group">
+                            <input type="text" id="url-input" placeholder="Or paste image URL...">
+                            <button class="btn btn-primary" id="load-url-btn">Load</button>
+                        </div>
 
-                    <button class="btn btn-secondary btn-block" id="load-default-btn" style="margin-top: 12px;">
-                        Load Default Image
-                    </button>
+                        <button class="btn btn-secondary btn-block" id="load-default-btn" style="margin-top: 12px;">
+                            Load Default Image
+                        </button>
 
-                    <div class="preview-section">
-                        <h4>Preview</h4>
-                        <img id="image-preview" alt="Preview">
-                        <div id="no-preview" style="font-size: 0.85rem; color: var(--text-secondary);">No image loaded</div>
+                        <div class="preview-section">
+                            <h4>Preview</h4>
+                            <img id="image-preview" alt="Preview">
+                            <div id="no-preview" style="font-size: 0.85rem; color: var(--text-secondary);">No image loaded</div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="control-section">
+                <div class="control-section" data-section="display-settings">
                     <h3>Display Settings</h3>
+                    <div class="section-content">
+                        <div class="setting-row">
+                            <label for="theme-select">Theme</label>
+                            <select id="theme-select">
+                                <option value="auto">Auto (System)</option>
+                                <option value="light">Light</option>
+                                <option value="dark">Dark</option>
+                            </select>
+                        </div>
 
-                    <div class="setting-row">
-                        <label for="theme-select">Theme</label>
-                        <select id="theme-select">
-                            <option value="auto">Auto (System)</option>
-                            <option value="light">Light</option>
-                            <option value="dark">Dark</option>
-                        </select>
-                    </div>
+                        <div class="setting-row">
+                            <label for="font-family">Font</label>
+                            <select id="font-family">
+                                <!-- Populated dynamically based on available fonts -->
+                            </select>
+                        </div>
 
-                    <div class="setting-row">
-                        <label for="font-family">Font</label>
-                        <select id="font-family">
-                            <!-- Populated dynamically based on available fonts -->
-                        </select>
-                    </div>
+                        <div class="setting-row">
+                            <label for="font-size">Font Size</label>
+                            <input type="range" id="font-size" min="4" max="20" value="10">
+                            <div class="setting-value"><span id="font-size-value">10</span>px</div>
+                        </div>
 
-                    <div class="setting-row">
-                        <label for="font-size">Font Size</label>
-                        <input type="range" id="font-size" min="4" max="20" value="10">
-                        <div class="setting-value"><span id="font-size-value">10</span>px</div>
-                    </div>
-
-                    <div class="setting-row">
-                        <label>Character Ratio (width/height)</label>
-                        <div class="inline-group">
-                            <input type="number" id="char-ratio" step="0.01" min="0.1" max="2" value="0.5">
-                            <div class="checkbox-row">
-                                <input type="checkbox" id="auto-ratio" checked>
-                                <label for="auto-ratio" style="margin: 0;">Auto</label>
+                        <div class="setting-row">
+                            <label>Character Ratio (width/height)</label>
+                            <div class="inline-group">
+                                <input type="number" id="char-ratio" step="0.01" min="0.1" max="2" value="0.5">
+                                <div class="checkbox-row">
+                                    <input type="checkbox" id="auto-ratio" checked>
+                                    <label for="auto-ratio" style="margin: 0;">Auto</label>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="control-section">
+                <div class="control-section" data-section="algorithm">
                     <h3>Algorithm</h3>
-
-                    <div class="setting-row">
-                        <label for="algorithm">Method</label>
-                        <select id="algorithm">
-                            <option value="brightness">Brightness Mapping</option>
-                            <option value="edge">Edge Detection</option>
-                            <option value="dithering">Floyd-Steinberg Dithering</option>
-                            <option value="pattern">Block Pattern Matching</option>
-                        </select>
-                    </div>
-
-                    <div class="algo-settings" id="algo-settings">
-                        <!-- Brightness Mapping Settings -->
-                        <div class="algo-settings-panel active" id="settings-brightness">
-                            <div class="setting-row">
-                                <label for="char-set">Character Set</label>
-                                <select id="char-set">
-                                    <option value="standard">Standard</option>
-                                    <option value="detailed">Detailed</option>
-                                    <option value="blocks">Blocks</option>
-                                    <option value="simple">Simple</option>
-                                </select>
-                            </div>
-                            <div class="setting-row">
-                                <label for="custom-chars">Characters (dark to light)</label>
-                                <input type="text" id="custom-chars" value="@%#+=*-:. " placeholder="Characters dark to light">
-                            </div>
+                    <div class="section-content">
+                        <div class="setting-row">
+                            <label for="algorithm">Method</label>
+                            <select id="algorithm">
+                                <option value="brightness">Brightness Mapping</option>
+                                <option value="edge">Edge Detection</option>
+                                <option value="dithering">Floyd-Steinberg Dithering</option>
+                                <option value="pattern">Block Pattern Matching</option>
+                            </select>
                         </div>
 
-                        <!-- Edge Detection Settings -->
-                        <div class="algo-settings-panel" id="settings-edge">
-                            <div class="setting-row">
-                                <label for="edge-threshold">Edge Threshold</label>
-                                <input type="range" id="edge-threshold" min="10" max="200" value="50">
-                                <div class="setting-value"><span id="edge-threshold-value">50</span></div>
+                        <div class="algo-settings" id="algo-settings">
+                            <!-- Brightness Mapping Settings -->
+                            <div class="algo-settings-panel active" id="settings-brightness">
+                                <div class="setting-row">
+                                    <label for="char-set">Character Set</label>
+                                    <select id="char-set">
+                                        <option value="standard">Standard</option>
+                                        <option value="detailed">Detailed</option>
+                                        <option value="blocks">Blocks</option>
+                                        <option value="simple">Simple</option>
+                                    </select>
+                                </div>
+                                <div class="setting-row">
+                                    <label for="custom-chars">Characters (dark to light)</label>
+                                    <input type="text" id="custom-chars" value="@%#+=*-:. " placeholder="Characters dark to light">
+                                </div>
                             </div>
-                        </div>
 
-                        <!-- Dithering Settings -->
-                        <div class="algo-settings-panel" id="settings-dithering">
-                            <div class="setting-row">
-                                <label for="dither-char-set">Character Set</label>
-                                <select id="dither-char-set">
-                                    <option value="standard">Standard</option>
-                                    <option value="detailed">Detailed</option>
-                                    <option value="blocks">Blocks</option>
-                                    <option value="simple">Simple</option>
-                                </select>
+                            <!-- Edge Detection Settings -->
+                            <div class="algo-settings-panel" id="settings-edge">
+                                <div class="setting-row">
+                                    <label for="edge-threshold">Edge Threshold</label>
+                                    <input type="range" id="edge-threshold" min="10" max="200" value="50">
+                                    <div class="setting-value"><span id="edge-threshold-value">50</span></div>
+                                </div>
                             </div>
-                            <div class="setting-row">
-                                <label for="dither-chars">Characters (dark to light)</label>
-                                <input type="text" id="dither-chars" value="@%#*+=-:. " placeholder="Characters dark to light">
-                            </div>
-                            <div class="setting-row">
-                                <label for="dither-strength">Error Diffusion Strength</label>
-                                <input type="range" id="dither-strength" min="0" max="100" value="100">
-                                <div class="setting-value"><span id="dither-strength-value">100</span>%</div>
-                            </div>
-                        </div>
 
-                        <!-- Pattern Matching Settings -->
-                        <div class="algo-settings-panel" id="settings-pattern">
-                            <div class="setting-row">
-                                <label for="pattern-block-size">Block Size</label>
-                                <select id="pattern-block-size">
-                                    <option value="2">2x2</option>
-                                    <option value="3" selected>3x3</option>
-                                    <option value="4">4x4</option>
-                                </select>
+                            <!-- Dithering Settings -->
+                            <div class="algo-settings-panel" id="settings-dithering">
+                                <div class="setting-row">
+                                    <label for="dither-char-set">Character Set</label>
+                                    <select id="dither-char-set">
+                                        <option value="standard">Standard</option>
+                                        <option value="detailed">Detailed</option>
+                                        <option value="blocks">Blocks</option>
+                                        <option value="simple">Simple</option>
+                                    </select>
+                                </div>
+                                <div class="setting-row">
+                                    <label for="dither-chars">Characters (dark to light)</label>
+                                    <input type="text" id="dither-chars" value="@%#*+=-:. " placeholder="Characters dark to light">
+                                </div>
+                                <div class="setting-row">
+                                    <label for="dither-strength">Error Diffusion Strength</label>
+                                    <input type="range" id="dither-strength" min="0" max="100" value="100">
+                                    <div class="setting-value"><span id="dither-strength-value">100</span>%</div>
+                                </div>
                             </div>
-                            <div class="setting-row">
-                                <label for="pattern-chars">Character Pool</label>
-                                <input type="text" id="pattern-chars" value="@#$%&8BMW*oahkbdpqwmZO0QCJYXzcvunxrjft/\|()1{}[]?-_+~<>i!lI;:,. " placeholder="Characters to use">
+
+                            <!-- Pattern Matching Settings -->
+                            <div class="algo-settings-panel" id="settings-pattern">
+                                <div class="setting-row">
+                                    <label for="pattern-block-size">Block Size</label>
+                                    <select id="pattern-block-size">
+                                        <option value="2">2x2</option>
+                                        <option value="3" selected>3x3</option>
+                                        <option value="4">4x4</option>
+                                    </select>
+                                </div>
+                                <div class="setting-row">
+                                    <label for="pattern-chars">Character Pool</label>
+                                    <input type="text" id="pattern-chars" value="@#$%&8BMW*oahkbdpqwmZO0QCJYXzcvunxrjft/\|()1{}[]?-_+~<>i!lI;:,. " placeholder="Characters to use">
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="control-section">
+                <div class="control-section" data-section="output-settings">
                     <h3>Output Settings</h3>
-
-                    <div class="setting-row">
-                        <label for="chars-per-row">Characters per row</label>
-                        <input type="range" id="chars-per-row" min="20" max="300" value="100">
-                        <div class="setting-value"><span id="chars-value">100</span> chars</div>
-                    </div>
-
-                    <div class="setting-row">
-                        <div class="checkbox-row">
-                            <input type="checkbox" id="invert-brightness">
-                            <label for="invert-brightness" style="margin: 0;">Invert brightness</label>
+                    <div class="section-content">
+                        <div class="setting-row">
+                            <label for="chars-per-row">Characters per row</label>
+                            <input type="range" id="chars-per-row" min="20" max="300" value="100">
+                            <div class="setting-value"><span id="chars-value">100</span> chars</div>
                         </div>
-                    </div>
 
-                    <div class="setting-row">
-                        <label for="contrast-amount">Contrast</label>
-                        <input type="range" id="contrast-amount" min="50" max="300" value="100">
-                        <div class="setting-value"><span id="contrast-amount-value">100</span>%</div>
-                    </div>
-
-                    <div class="setting-row">
-                        <div class="checkbox-row">
-                            <input type="checkbox" id="contrast-histogram">
-                            <label for="contrast-histogram" style="margin: 0;">Histogram equalization</label>
+                        <div class="setting-row">
+                            <div class="checkbox-row">
+                                <input type="checkbox" id="invert-brightness">
+                                <label for="invert-brightness" style="margin: 0;">Invert brightness</label>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="setting-row">
-                        <label for="color-mode">Color Mode</label>
-                        <select id="color-mode">
-                            <option value="monochrome">Monochrome</option>
-                            <option value="adaptive4">Adaptive 4 colors</option>
-                            <option value="adaptive8">Adaptive 8 colors</option>
-                            <option value="adaptive16">Adaptive 16 colors</option>
-                            <option value="ansi256">ANSI 256 colors</option>
-                            <option value="truecolor">True color</option>
-                        </select>
-                    </div>
+                        <div class="setting-row">
+                            <label for="contrast-amount">Contrast</label>
+                            <input type="range" id="contrast-amount" min="50" max="300" value="100">
+                            <div class="setting-value"><span id="contrast-amount-value">100</span>%</div>
+                        </div>
 
-                    <div class="setting-row color-settings" style="display: none;">
-                        <label for="brightness-blend">Brightness blend</label>
-                        <input type="range" id="brightness-blend" min="0" max="100" value="50">
-                        <div class="setting-value"><span id="brightness-blend-value">50</span>%</div>
-                    </div>
+                        <div class="setting-row">
+                            <div class="checkbox-row">
+                                <input type="checkbox" id="contrast-histogram">
+                                <label for="contrast-histogram" style="margin: 0;">Histogram equalization</label>
+                            </div>
+                        </div>
 
-                    <div class="setting-row color-settings" style="display: none;">
-                        <label for="color-saturation">Saturation</label>
-                        <input type="range" id="color-saturation" min="0" max="200" value="100">
-                        <div class="setting-value"><span id="color-saturation-value">100</span>%</div>
+                        <div class="setting-row">
+                            <label for="color-mode">Color Mode</label>
+                            <select id="color-mode">
+                                <option value="monochrome">Monochrome</option>
+                                <option value="truecolor">True color</option>
+                                <option value="adaptive4">Adaptive 4 colors</option>
+                                <option value="adaptive8">Adaptive 8 colors</option>
+                                <option value="adaptive16">Adaptive 16 colors</option>
+                                <option value="adaptive256">Adaptive 256 colors</option>
+                                <option value="ansi256">ANSI 256 colors</option>
+                            </select>
+                        </div>
+
+                        <div class="setting-row mono-settings">
+                            <label>Colors</label>
+                            <div class="inline-group">
+                                <input type="color" id="mono-fg" value="#f0f0f0" title="Foreground">
+                                <span style="font-size: 0.85rem; color: var(--text-secondary);">FG</span>
+                                <input type="color" id="mono-bg" value="#0d0d0d" title="Background">
+                                <span style="font-size: 0.85rem; color: var(--text-secondary);">BG</span>
+                            </div>
+                        </div>
+
+                        <div class="setting-row color-settings" style="display: none;">
+                            <label for="brightness-blend">Brightness blend</label>
+                            <input type="range" id="brightness-blend" min="0" max="100" value="50">
+                            <div class="setting-value"><span id="brightness-blend-value">50</span>%</div>
+                        </div>
+
+                        <div class="setting-row color-settings" style="display: none;">
+                            <label for="color-saturation">Saturation</label>
+                            <input type="range" id="color-saturation" min="0" max="200" value="100">
+                            <div class="setting-value"><span id="color-saturation-value">100</span>%</div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="control-section">
+                <div class="control-section" data-section="export">
                     <h3>Export</h3>
-                    <div class="copy-buttons">
-                        <button class="btn btn-secondary" id="copy-text-btn">Copy Text</button>
-                        <button class="btn btn-secondary" id="copy-html-btn">Copy HTML</button>
-                    </div>
-                    <div class="copy-buttons" style="margin-top: 8px;">
-                        <button class="btn btn-secondary" id="copy-markdown-btn">Copy Markdown</button>
-                        <button class="btn btn-primary" id="download-png-btn">Download PNG</button>
+                    <div class="section-content">
+                        <div class="copy-buttons">
+                            <button class="btn btn-secondary" id="copy-text-btn">Copy Text</button>
+                            <button class="btn btn-secondary" id="copy-html-btn">Copy HTML</button>
+                        </div>
+                        <div class="copy-buttons" style="margin-top: 8px;">
+                            <button class="btn btn-secondary" id="copy-markdown-btn">Copy Markdown</button>
+                            <button class="btn btn-primary" id="download-png-btn">Download PNG</button>
+                        </div>
                     </div>
                 </div>
             </aside>
@@ -896,6 +952,9 @@
         const brightnessBlendValue = document.getElementById('brightness-blend-value');
         const colorSaturation = document.getElementById('color-saturation');
         const colorSaturationValue = document.getElementById('color-saturation-value');
+        const monoSettings = document.querySelector('.mono-settings');
+        const monoFg = document.getElementById('mono-fg');
+        const monoBg = document.getElementById('mono-bg');
 
         // Font detection
         const CANDIDATE_FONTS = [
@@ -1000,17 +1059,50 @@
 
             populateFontSelector();
             setupEventListeners();
+            setupSectionToggles();
             updateDisplaySettings();
             updateCharRatio();
             updateAlgorithmPanel();
+            updateMonoColors();
 
             // Listen for system theme changes
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
                 if (themeSelect.value === 'auto') {
                     updateInvertDefaults();
+                    updateMonoColors();
                     if (currentImage) convertToAscii();
                 }
             });
+        }
+
+        function setupSectionToggles() {
+            const sections = document.querySelectorAll('.control-section[data-section]');
+            const savedStates = JSON.parse(localStorage.getItem('ascii-sections') || '{}');
+
+            sections.forEach(section => {
+                const name = section.dataset.section;
+                const h3 = section.querySelector('h3');
+
+                // Restore collapsed state
+                if (savedStates[name]) {
+                    section.classList.add('collapsed');
+                }
+
+                // Add click handler
+                h3.addEventListener('click', () => {
+                    section.classList.toggle('collapsed');
+                    // Save state
+                    const states = JSON.parse(localStorage.getItem('ascii-sections') || '{}');
+                    states[name] = section.classList.contains('collapsed');
+                    localStorage.setItem('ascii-sections', JSON.stringify(states));
+                });
+            });
+        }
+
+        function updateMonoColors() {
+            const dark = isDarkMode();
+            monoFg.value = dark ? '#f0f0f0' : '#000000';
+            monoBg.value = dark ? '#0d0d0d' : '#ffffff';
         }
 
         function setupEventListeners() {
@@ -1108,8 +1200,9 @@
             });
             contrastHistogram.addEventListener('change', () => { if (currentImage) convertToAscii(); });
             colorMode.addEventListener('change', () => {
-                const show = colorMode.value !== 'monochrome';
-                colorSettings.forEach(el => el.style.display = show ? 'block' : 'none');
+                const isMono = colorMode.value === 'monochrome';
+                monoSettings.style.display = isMono ? 'block' : 'none';
+                colorSettings.forEach(el => el.style.display = isMono ? 'none' : 'block');
                 cachedPalette = null; // Clear palette cache
                 if (currentImage) convertToAscii();
             });
@@ -1121,6 +1214,8 @@
                 colorSaturationValue.textContent = colorSaturation.value;
                 if (currentImage) convertToAscii();
             });
+            monoFg.addEventListener('input', () => { if (currentImage) convertToAscii(); });
+            monoBg.addEventListener('input', () => { if (currentImage) convertToAscii(); });
 
             // Copy buttons
             copyTextBtn.addEventListener('click', copyAsText);
@@ -1293,6 +1388,8 @@
 
                 // Apply color based on mode
                 const mode = colorMode.value;
+                const asciiContainer = asciiOutput.parentElement;
+
                 if (mode !== 'monochrome') {
                     // Get brightness data for blending
                     const { imageData } = getScaledImageData(currentImage, result.width);
@@ -1308,8 +1405,11 @@
                         asciiOutput.innerHTML = html;
                         lastColoredHtml = html;
                     }
+                    asciiContainer.style.backgroundColor = '';
                 } else {
-                    asciiOutput.style.color = 'var(--ascii-text)';
+                    // Monochrome with custom colors
+                    asciiOutput.style.color = monoFg.value;
+                    asciiContainer.style.backgroundColor = monoBg.value;
                     asciiOutput.textContent = result.ascii;
                 }
 
@@ -1766,8 +1866,9 @@
 
         function copyAsHtml() {
             const isColored = colorMode.value !== 'monochrome' && lastColoredHtml;
-            const bgColor = isDarkMode() ? '#0d0d0d' : '#ffffff';
-            const textColor = isDarkMode() ? '#f0f0f0' : '#000000';
+            const isMono = colorMode.value === 'monochrome';
+            const bgColor = isMono ? monoBg.value : (isDarkMode() ? '#0d0d0d' : '#ffffff');
+            const textColor = isMono ? monoFg.value : (isDarkMode() ? '#f0f0f0' : '#000000');
             let html;
 
             const baseStyles = `font-family: ${fontFamily.value}; font-size: ${fontSize.value}px; line-height: 1; letter-spacing: 0; white-space: pre; background-color: ${bgColor}; padding: 16px; margin: 0; display: inline-block;`;
@@ -1843,7 +1944,8 @@
             canvas.height = canvasHeight;
 
             // Fill background
-            const bgColor = isDarkMode() ? '#0d0d0d' : '#ffffff';
+            const isMono = colorMode.value === 'monochrome';
+            const bgColor = isMono ? monoBg.value : (isDarkMode() ? '#0d0d0d' : '#ffffff');
             ctx.fillStyle = bgColor;
             ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
@@ -1882,7 +1984,7 @@
                 }
             } else {
                 // Render plain text
-                const textColor = isDarkMode() ? '#f0f0f0' : '#000000';
+                const textColor = isMono ? monoFg.value : (isDarkMode() ? '#f0f0f0' : '#000000');
                 ctx.fillStyle = textColor;
 
                 lines.forEach((line, i) => {
