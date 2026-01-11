@@ -37,17 +37,54 @@ async function initWasm() {
 // Initialize WASM on worker start
 initWasm();
 
-// HTML escape map (can't use DOM in worker)
-const escapeMap = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-};
+// Pre-built escape lookup table for all ASCII chars (0-127)
+// Most chars return themselves, only &<>"' need escaping
+const escapeTable = new Array(128);
+for (let i = 0; i < 128; i++) {
+    escapeTable[i] = String.fromCharCode(i);
+}
+escapeTable[38] = '&amp;';   // &
+escapeTable[60] = '&lt;';    // <
+escapeTable[62] = '&gt;';    // >
+escapeTable[34] = '&quot;';  // "
+escapeTable[39] = '&#039;';  // '
 
-function escapeHtml(text) {
-    return text.replace(/[&<>"']/g, c => escapeMap[c] || c);
+// Fast single-char escape using lookup table
+function escapeChar(char) {
+    const code = char.charCodeAt(0);
+    return code < 128 ? escapeTable[code] : char;
+}
+
+// Color string cache - avoids creating new strings for same colors
+const colorCache = new Map();
+const COLOR_CACHE_MAX = 50000;
+
+function getColorString(r, g, b, opacity) {
+    // Create cache key: pack RGBA into single number
+    // opacity is 0-100 (2 decimal precision)
+    const opacityInt = Math.round(opacity * 100);
+    const key = (opacityInt << 24) | (r << 16) | (g << 8) | b;
+
+    let cached = colorCache.get(key);
+    if (cached !== undefined) {
+        return cached;
+    }
+
+    // Generate color string
+    let colorStr;
+    if (opacityInt < 100) {
+        colorStr = `rgba(${r},${g},${b},${(opacityInt / 100).toFixed(2)})`;
+    } else {
+        colorStr = `rgb(${r},${g},${b})`;
+    }
+
+    // Cache with size limit
+    if (colorCache.size >= COLOR_CACHE_MAX) {
+        colorCache.clear();
+    }
+    colorCache.set(key, colorStr);
+
+    return colorStr;
 }
 
 // JS fallback functions
@@ -242,11 +279,12 @@ function applyColorToAscii(ascii, pixels, width, height, brightnessData, setting
     }
 
     const pixelCount = width * height;
+    const useWasm = wasm && pixelCount <= 1024 * 1024;
 
     // Use WASM for palette mapping and saturation if available
     let processedPixels = pixels;
 
-    if (wasm && pixelCount <= 1024 * 1024 && (palette || settings.saturation !== 1)) {
+    if (useWasm && (palette || settings.saturation !== 1)) {
         // Copy pixels to WASM buffer
         wasmBuffer.set(pixels.subarray(0, pixelCount * 4));
 
@@ -272,93 +310,113 @@ function applyColorToAscii(ascii, pixels, width, height, brightnessData, setting
         processedPixels.set(wasmBuffer.subarray(0, pixelCount * 4));
     }
 
-    const lines = ascii.split('\n');
-    const parts = [];
+    // Pre-compute all colors into typed arrays to avoid per-pixel allocations
+    const colorR = new Uint8Array(pixelCount);
+    const colorG = new Uint8Array(pixelCount);
+    const colorB = new Uint8Array(pixelCount);
+    const opacities = new Float32Array(pixelCount);
 
-    function getColorString(r, g, b, opacity) {
-        if (opacity < 1) {
-            return `rgba(${r},${g},${b},${opacity.toFixed(2)})`;
+    const doBlend = settings.blend !== 0.5 && brightnessData;
+    const doBrightnessOpacity = settings.brightnessOpacity && brightnessData;
+    const baseOpacity = settings.baseOpacity;
+    const invert = settings.invert;
+    const adjustedBlend = (settings.blend - 0.5) * 2;
+
+    for (let idx = 0; idx < pixelCount; idx++) {
+        const i = idx * 4;
+        let r = processedPixels[i];
+        let g = processedPixels[i + 1];
+        let b = processedPixels[i + 2];
+
+        // If we didn't use WASM for palette/saturation, do it in JS
+        if (!useWasm) {
+            if (palette) {
+                const nearest = nearestColor(r, g, b, palette);
+                r = nearest[0];
+                g = nearest[1];
+                b = nearest[2];
+            }
+
+            if (settings.saturation !== 1) {
+                const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                r = Math.round(gray + settings.saturation * (r - gray));
+                g = Math.round(gray + settings.saturation * (g - gray));
+                b = Math.round(gray + settings.saturation * (b - gray));
+            }
         }
-        return `rgb(${r},${g},${b})`;
+
+        // Apply brightness blend
+        if (doBlend) {
+            const charBrightness = brightnessData[idx];
+            let factor;
+            if (adjustedBlend >= 0) {
+                factor = 1 - adjustedBlend * (1 - charBrightness);
+            } else {
+                factor = 1 + (-adjustedBlend) * (1 - charBrightness);
+            }
+            r = Math.round(r * factor);
+            g = Math.round(g * factor);
+            b = Math.round(b * factor);
+        }
+
+        // Clamp and store
+        colorR[idx] = r < 0 ? 0 : (r > 255 ? 255 : r);
+        colorG[idx] = g < 0 ? 0 : (g > 255 ? 255 : g);
+        colorB[idx] = b < 0 ? 0 : (b > 255 ? 255 : b);
+
+        // Calculate opacity
+        let opacity = baseOpacity;
+        if (doBrightnessOpacity) {
+            let charBrightness = brightnessData[idx];
+            if (invert) {
+                charBrightness = 1 - charBrightness;
+            }
+            opacity *= (1 - charBrightness);
+        }
+        opacities[idx] = opacity;
     }
+
+    // Build HTML with span combining
+    const parts = [];
+    let lineStart = 0;
 
     for (let y = 0; y < height; y++) {
         let currentColor = null;
         let currentChars = '';
 
         for (let x = 0; x < width; x++) {
-            const char = lines[y] ? lines[y][x] : ' ';
-            if (!char) continue;
+            const idx = y * width + x;
+            const charCode = ascii.charCodeAt(lineStart + x);
 
-            const i = (y * width + x) * 4;
-            let r = processedPixels[i];
-            let g = processedPixels[i + 1];
-            let b = processedPixels[i + 2];
+            // Skip if no character (shouldn't happen but safety check)
+            if (charCode === 10 || isNaN(charCode)) continue;
 
-            // If we didn't use WASM for palette/saturation, do it in JS
-            if (!wasm || pixelCount > 1024 * 1024) {
-                if (palette) {
-                    const nearest = nearestColor(r, g, b, palette);
-                    r = nearest[0];
-                    g = nearest[1];
-                    b = nearest[2];
-                }
-
-                if (settings.saturation !== 1) {
-                    const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-                    r = Math.round(gray + settings.saturation * (r - gray));
-                    g = Math.round(gray + settings.saturation * (g - gray));
-                    b = Math.round(gray + settings.saturation * (b - gray));
-                }
-            }
-
-            // Apply brightness blend (always in JS for now)
-            if (settings.blend !== 0.5 && brightnessData) {
-                const charBrightness = brightnessData[y * width + x];
-                const adjustedBlend = (settings.blend - 0.5) * 2;
-                let factor;
-                if (adjustedBlend >= 0) {
-                    factor = 1 - adjustedBlend * (1 - charBrightness);
-                } else {
-                    factor = 1 + Math.abs(adjustedBlend) * (1 - charBrightness);
-                }
-                r = Math.round(r * factor);
-                g = Math.round(g * factor);
-                b = Math.round(b * factor);
-            }
-
-            // Clamp values
-            r = Math.max(0, Math.min(255, r));
-            g = Math.max(0, Math.min(255, g));
-            b = Math.max(0, Math.min(255, b));
-
-            // Calculate opacity
-            let opacity = settings.baseOpacity;
-            if (settings.brightnessOpacity && brightnessData) {
-                let charBrightness = brightnessData[y * width + x];
-                if (settings.invert) {
-                    charBrightness = 1 - charBrightness;
-                }
-                opacity *= (1 - charBrightness);
-            }
-
-            const colorStr = getColorString(r, g, b, opacity);
+            const colorStr = getColorString(colorR[idx], colorG[idx], colorB[idx], opacities[idx]);
 
             if (colorStr === currentColor) {
-                currentChars += escapeHtml(char);
+                currentChars += escapeChar(String.fromCharCode(charCode));
             } else {
                 if (currentColor !== null) {
-                    parts.push(`<span style="color:${currentColor}">${currentChars}</span>`);
+                    parts.push('<span style="color:');
+                    parts.push(currentColor);
+                    parts.push('">');
+                    parts.push(currentChars);
+                    parts.push('</span>');
                 }
                 currentColor = colorStr;
-                currentChars = escapeHtml(char);
+                currentChars = escapeChar(String.fromCharCode(charCode));
             }
         }
 
         if (currentColor !== null) {
-            parts.push(`<span style="color:${currentColor}">${currentChars}</span>`);
+            parts.push('<span style="color:');
+            parts.push(currentColor);
+            parts.push('">');
+            parts.push(currentChars);
+            parts.push('</span>');
         }
         parts.push('\n');
+        lineStart += width + 1; // +1 for newline
     }
 
     return parts.join('');
@@ -366,9 +424,8 @@ function applyColorToAscii(ascii, pixels, width, height, brightnessData, setting
 
 // Process monochrome with brightness opacity
 function processMonoBrightnessOpacity(ascii, pixels, width, height, settings) {
-    const lines = ascii.split('\n');
     const parts = [];
-    const { fgR, fgG, fgB } = settings;
+    const { fgR, fgG, fgB, baseOpacity, invert } = settings;
     const pixelCount = width * height;
 
     // Calculate brightness using WASM if available
@@ -385,32 +442,62 @@ function processMonoBrightnessOpacity(ascii, pixels, width, height, settings) {
         }
     }
 
+    // Pre-compute opacities
+    const opacities = new Float32Array(pixelCount);
+    for (let i = 0; i < pixelCount; i++) {
+        let brightness = brightnessValues[i];
+        if (invert) brightness = 1 - brightness;
+        opacities[i] = baseOpacity * (1 - brightness);
+    }
+
+    let lineStart = 0;
     for (let y = 0; y < height; y++) {
-        let currentOpacity = null;
+        let currentOpacity = -1;
         let currentChars = '';
 
         for (let x = 0; x < width; x++) {
-            const char = lines[y] ? lines[y][x] : ' ';
-            if (!char) continue;
+            const idx = y * width + x;
+            const charCode = ascii.charCodeAt(lineStart + x);
+            if (charCode === 10 || isNaN(charCode)) continue;
 
-            let brightness = brightnessValues[y * width + x];
-            if (settings.invert) brightness = 1 - brightness;
-            const opacity = (settings.baseOpacity * (1 - brightness)).toFixed(2);
+            // Quantize opacity to 2 decimal places for better span combining
+            const opacity = Math.round(opacities[idx] * 100) / 100;
 
             if (opacity === currentOpacity) {
-                currentChars += escapeHtml(char);
+                currentChars += escapeChar(String.fromCharCode(charCode));
             } else {
-                if (currentOpacity !== null) {
-                    parts.push(`<span style="color:rgba(${fgR},${fgG},${fgB},${currentOpacity})">${currentChars}</span>`);
+                if (currentOpacity >= 0) {
+                    parts.push('<span style="color:rgba(');
+                    parts.push(fgR);
+                    parts.push(',');
+                    parts.push(fgG);
+                    parts.push(',');
+                    parts.push(fgB);
+                    parts.push(',');
+                    parts.push(currentOpacity.toFixed(2));
+                    parts.push(')">');
+                    parts.push(currentChars);
+                    parts.push('</span>');
                 }
                 currentOpacity = opacity;
-                currentChars = escapeHtml(char);
+                currentChars = escapeChar(String.fromCharCode(charCode));
             }
         }
-        if (currentOpacity !== null) {
-            parts.push(`<span style="color:rgba(${fgR},${fgG},${fgB},${currentOpacity})">${currentChars}</span>`);
+        if (currentOpacity >= 0) {
+            parts.push('<span style="color:rgba(');
+            parts.push(fgR);
+            parts.push(',');
+            parts.push(fgG);
+            parts.push(',');
+            parts.push(fgB);
+            parts.push(',');
+            parts.push(currentOpacity.toFixed(2));
+            parts.push(')">');
+            parts.push(currentChars);
+            parts.push('</span>');
         }
         parts.push('\n');
+        lineStart += width + 1;
     }
 
     return parts.join('');
@@ -466,5 +553,6 @@ self.onmessage = function(e) {
         });
     } else if (type === 'clearCache') {
         cachedPalette = null;
+        colorCache.clear();
     }
 };
