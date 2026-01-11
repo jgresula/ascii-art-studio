@@ -1,5 +1,41 @@
 // ASCII Conversion Web Worker
 // Handles heavy pixel processing off the main thread
+// Uses WebAssembly for performance-critical operations
+
+// WASM module state
+let wasm = null;
+let wasmMemory = null;
+let wasmBuffer = null;
+let wasmFloatBuffer = null;
+
+// Load WASM module
+async function initWasm() {
+    try {
+        const response = await fetch('ascii-wasm.wasm');
+        const bytes = await response.arrayBuffer();
+        const module = await WebAssembly.instantiate(bytes, {});
+        wasm = module.instance.exports;
+
+        // Get pointers to WASM memory buffers
+        wasmMemory = wasm.memory;
+        const bufferPtr = wasm.get_buffer_ptr();
+        const floatBufferPtr = wasm.get_float_buffer_ptr();
+
+        // Create views into WASM memory
+        wasmBuffer = new Uint8Array(wasmMemory.buffer, bufferPtr, 4 * 1024 * 1024);
+        wasmFloatBuffer = new Float32Array(wasmMemory.buffer, floatBufferPtr, 1024 * 1024);
+
+        console.log('WASM module loaded successfully');
+        return true;
+    } catch (e) {
+        console.warn('WASM load failed, using JS fallback:', e);
+        wasm = null;
+        return false;
+    }
+}
+
+// Initialize WASM on worker start
+initWasm();
 
 // HTML escape map (can't use DOM in worker)
 const escapeMap = {
@@ -14,6 +50,7 @@ function escapeHtml(text) {
     return text.replace(/[&<>"']/g, c => escapeMap[c] || c);
 }
 
+// JS fallback functions
 function getBrightness(r, g, b) {
     return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
 }
@@ -32,12 +69,11 @@ function nearestColor(r, g, b, palette) {
     return nearest;
 }
 
-function applyContrast(brightness, contrast, useHistogram) {
+function applyContrastJS(brightness, contrast, useHistogram) {
     if (contrast === 1 && !useHistogram) {
         return brightness;
     }
 
-    // Histogram equalization
     if (useHistogram) {
         const histogram = new Array(256).fill(0);
         for (let i = 0; i < brightness.length; i++) {
@@ -59,7 +95,6 @@ function applyContrast(brightness, contrast, useHistogram) {
         }
     }
 
-    // Apply contrast adjustment
     if (contrast !== 1) {
         for (let i = 0; i < brightness.length; i++) {
             let b = brightness[i];
@@ -72,7 +107,6 @@ function applyContrast(brightness, contrast, useHistogram) {
 }
 
 function quantizeColors(pixels, numColors, saturation = 1) {
-    // Collect unique colors (sample for performance)
     const colorMap = new Map();
     const step = Math.max(1, Math.floor(pixels.length / 4 / 10000));
     for (let i = 0; i < pixels.length; i += 4 * step) {
@@ -103,7 +137,6 @@ function quantizeColors(pixels, numColors, saturation = 1) {
         return colorList.map(c => [c[0], c[1], c[2]]);
     }
 
-    // Median cut algorithm
     function getRange(colors, channel) {
         let min = 255, max = 0;
         for (const c of colors) {
@@ -147,20 +180,47 @@ function quantizeColors(pixels, numColors, saturation = 1) {
     return medianCut(colorList, depth).slice(0, numColors);
 }
 
-// Brightness mapping algorithm
+// WASM-accelerated brightness mapping
 function brightnessMapping(pixels, width, height, settings) {
+    const pixelCount = width * height;
+    let brightnessValues;
+
+    if (wasm && pixelCount <= 1024 * 1024) {
+        // Use WASM
+        // Copy pixels to WASM buffer
+        wasmBuffer.set(pixels.subarray(0, pixelCount * 4));
+
+        // Calculate brightness using WASM
+        wasm.calc_brightness_batch(pixelCount);
+
+        // Apply histogram equalization if needed
+        if (settings.histogram) {
+            wasm.apply_histogram_eq(pixelCount);
+        }
+
+        // Apply contrast if needed
+        if (settings.contrast !== 1) {
+            wasm.apply_contrast(pixelCount, settings.contrast);
+        }
+
+        // Copy brightness values from WASM
+        brightnessValues = new Float32Array(pixelCount);
+        brightnessValues.set(wasmFloatBuffer.subarray(0, pixelCount));
+    } else {
+        // JS fallback
+        brightnessValues = new Float32Array(pixelCount);
+        for (let i = 0; i < pixelCount; i++) {
+            const pi = i * 4;
+            brightnessValues[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
+        }
+        applyContrastJS(brightnessValues, settings.contrast, settings.histogram);
+    }
+
+    // Generate ASCII string
     let chars = settings.chars;
     if (settings.invert) {
         chars = chars.split('').reverse().join('');
     }
-
-    const brightnessValues = new Float32Array(width * height);
-    for (let i = 0; i < width * height; i++) {
-        const pi = i * 4;
-        brightnessValues[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
-    }
-
-    applyContrast(brightnessValues, settings.contrast, settings.histogram);
 
     let ascii = '';
     for (let y = 0; y < height; y++) {
@@ -175,10 +235,41 @@ function brightnessMapping(pixels, width, height, settings) {
     return { ascii, brightnessValues };
 }
 
-// Apply color to ASCII
+// WASM-accelerated color application
 function applyColorToAscii(ascii, pixels, width, height, brightnessData, settings, palette) {
     if (settings.colorMode === 'monochrome') {
         return null;
+    }
+
+    const pixelCount = width * height;
+
+    // Use WASM for palette mapping and saturation if available
+    let processedPixels = pixels;
+
+    if (wasm && pixelCount <= 1024 * 1024 && (palette || settings.saturation !== 1)) {
+        // Copy pixels to WASM buffer
+        wasmBuffer.set(pixels.subarray(0, pixelCount * 4));
+
+        // Apply palette mapping using WASM if needed
+        if (palette) {
+            // Copy palette to WASM buffer after pixel data
+            const paletteOffset = pixelCount * 4;
+            for (let i = 0; i < palette.length; i++) {
+                wasmBuffer[paletteOffset + i * 3] = palette[i][0];
+                wasmBuffer[paletteOffset + i * 3 + 1] = palette[i][1];
+                wasmBuffer[paletteOffset + i * 3 + 2] = palette[i][2];
+            }
+            wasm.nearest_color_batch(pixelCount, paletteOffset, palette.length);
+        }
+
+        // Apply saturation using WASM if needed
+        if (settings.saturation !== 1) {
+            wasm.apply_saturation(pixelCount, settings.saturation);
+        }
+
+        // Create new array with processed pixels
+        processedPixels = new Uint8Array(pixelCount * 4);
+        processedPixels.set(wasmBuffer.subarray(0, pixelCount * 4));
     }
 
     const lines = ascii.split('\n');
@@ -200,27 +291,28 @@ function applyColorToAscii(ascii, pixels, width, height, brightnessData, setting
             if (!char) continue;
 
             const i = (y * width + x) * 4;
-            let r = pixels[i];
-            let g = pixels[i + 1];
-            let b = pixels[i + 2];
+            let r = processedPixels[i];
+            let g = processedPixels[i + 1];
+            let b = processedPixels[i + 2];
 
-            // Map to palette if not true color
-            if (palette) {
-                const nearest = nearestColor(r, g, b, palette);
-                r = nearest[0];
-                g = nearest[1];
-                b = nearest[2];
+            // If we didn't use WASM for palette/saturation, do it in JS
+            if (!wasm || pixelCount > 1024 * 1024) {
+                if (palette) {
+                    const nearest = nearestColor(r, g, b, palette);
+                    r = nearest[0];
+                    g = nearest[1];
+                    b = nearest[2];
+                }
+
+                if (settings.saturation !== 1) {
+                    const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                    r = Math.round(gray + settings.saturation * (r - gray));
+                    g = Math.round(gray + settings.saturation * (g - gray));
+                    b = Math.round(gray + settings.saturation * (b - gray));
+                }
             }
 
-            // Apply saturation
-            if (settings.saturation !== 1) {
-                const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-                r = Math.round(gray + settings.saturation * (r - gray));
-                g = Math.round(gray + settings.saturation * (g - gray));
-                b = Math.round(gray + settings.saturation * (b - gray));
-            }
-
-            // Apply brightness blend
+            // Apply brightness blend (always in JS for now)
             if (settings.blend !== 0.5 && brightnessData) {
                 const charBrightness = brightnessData[y * width + x];
                 const adjustedBlend = (settings.blend - 0.5) * 2;
@@ -252,7 +344,6 @@ function applyColorToAscii(ascii, pixels, width, height, brightnessData, setting
 
             const colorStr = getColorString(r, g, b, opacity);
 
-            // Combine adjacent same-color characters
             if (colorStr === currentColor) {
                 currentChars += escapeHtml(char);
             } else {
@@ -278,6 +369,21 @@ function processMonoBrightnessOpacity(ascii, pixels, width, height, settings) {
     const lines = ascii.split('\n');
     const parts = [];
     const { fgR, fgG, fgB } = settings;
+    const pixelCount = width * height;
+
+    // Calculate brightness using WASM if available
+    let brightnessValues;
+    if (wasm && pixelCount <= 1024 * 1024) {
+        wasmBuffer.set(pixels.subarray(0, pixelCount * 4));
+        wasm.calc_brightness_batch(pixelCount);
+        brightnessValues = wasmFloatBuffer;
+    } else {
+        brightnessValues = new Float32Array(pixelCount);
+        for (let i = 0; i < pixelCount; i++) {
+            const pi = i * 4;
+            brightnessValues[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
+        }
+    }
 
     for (let y = 0; y < height; y++) {
         let currentOpacity = null;
@@ -287,8 +393,7 @@ function processMonoBrightnessOpacity(ascii, pixels, width, height, settings) {
             const char = lines[y] ? lines[y][x] : ' ';
             if (!char) continue;
 
-            const pi = (y * width + x) * 4;
-            let brightness = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
+            let brightness = brightnessValues[y * width + x];
             if (settings.invert) brightness = 1 - brightness;
             const opacity = (settings.baseOpacity * (1 - brightness)).toFixed(2);
 
@@ -321,7 +426,7 @@ self.onmessage = function(e) {
     if (type === 'convert') {
         const startTime = performance.now();
 
-        // Run brightness mapping
+        // Run brightness mapping (WASM-accelerated)
         const { ascii, brightnessValues } = brightnessMapping(pixels, width, height, settings);
 
         let html = null;
@@ -346,7 +451,6 @@ self.onmessage = function(e) {
 
             html = applyColorToAscii(ascii, pixels, width, height, brightnessValues, settings, palette);
         } else if (settings.brightnessOpacity) {
-            // Monochrome with brightness-based opacity
             html = processMonoBrightnessOpacity(ascii, pixels, width, height, settings);
         }
 
