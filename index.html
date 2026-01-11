@@ -541,6 +541,117 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+            max-width: 400px;
+            width: 90%;
+            animation: modalSlideIn 0.2s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.1rem;
+            color: var(--text-primary);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-body .setting-group {
+            margin-bottom: 16px;
+        }
+
+        .modal-body .setting-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .modal-body .setting-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .modal-body .setting-group select {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .modal-body .setting-group select:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            padding: 16px 20px;
+            border-top: 1px solid var(--border-color);
+        }
     </style>
 </head>
 <body>
@@ -854,6 +965,56 @@
     </div>
 
     <div class="toast" id="toast"></div>
+
+    <!-- Video Settings Modal -->
+    <div class="modal-overlay" id="video-settings-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Video Recording Settings</h3>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-group">
+                    <label>Format</label>
+                    <select id="video-format">
+                        <option value="webm-vp9">WebM (VP9) - Best quality</option>
+                        <option value="webm-vp8">WebM (VP8) - Compatible</option>
+                        <option value="mp4">MP4 (H.264) - Safari</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label>Quality</label>
+                    <select id="video-quality">
+                        <option value="high">High (8 Mbps)</option>
+                        <option value="medium" selected>Medium (5 Mbps)</option>
+                        <option value="low">Low (2 Mbps)</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label>Frame Rate</label>
+                    <select id="video-framerate">
+                        <option value="60">60 FPS</option>
+                        <option value="30" selected>30 FPS</option>
+                        <option value="24">24 FPS (Cinematic)</option>
+                        <option value="15">15 FPS (Small file)</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label>Max Duration</label>
+                    <select id="video-duration">
+                        <option value="10">10 seconds</option>
+                        <option value="30" selected>30 seconds</option>
+                        <option value="60">60 seconds</option>
+                        <option value="120">2 minutes</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="modal-cancel">Cancel</button>
+                <button class="btn btn-primary" id="modal-start-recording">Start Recording</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         // Adaptive debounce - adjusts delay based on last conversion time
@@ -1285,7 +1446,15 @@
         let mediaRecorder = null;
         let videoChunks = [];
         let videoStartTime = 0;
-        const VIDEO_MAX_DURATION = 30000; // 30 seconds max
+        let videoMaxDuration = 30000; // configurable via modal
+
+        // Video recording settings (from modal)
+        let videoSettings = {
+            format: 'webm-vp9',
+            quality: 'medium',
+            framerate: 30,
+            duration: 30
+        };
 
         // DOM Elements
         const dropZone = document.getElementById('drop-zone');
@@ -1324,6 +1493,16 @@
         const saveSettingsPresetBtn = document.getElementById('save-settings-preset-btn');
         const deleteSettingsPresetBtn = document.getElementById('delete-settings-preset-btn');
         const toast = document.getElementById('toast');
+
+        // Video settings modal elements
+        const videoSettingsModal = document.getElementById('video-settings-modal');
+        const modalClose = document.getElementById('modal-close');
+        const modalCancel = document.getElementById('modal-cancel');
+        const modalStartRecording = document.getElementById('modal-start-recording');
+        const videoFormatSelect = document.getElementById('video-format');
+        const videoQualitySelect = document.getElementById('video-quality');
+        const videoFramerateSelect = document.getElementById('video-framerate');
+        const videoDurationSelect = document.getElementById('video-duration');
 
         // Display settings
         const themeSelect = document.getElementById('theme-select');
@@ -1725,7 +1904,28 @@
                 if (isRecordingVideo) {
                     stopVideoRecording();
                 } else {
-                    startVideoRecording();
+                    showVideoSettingsModal();
+                }
+            });
+
+            // Video settings modal handlers
+            modalClose.addEventListener('click', hideVideoSettingsModal);
+            modalCancel.addEventListener('click', hideVideoSettingsModal);
+            modalStartRecording.addEventListener('click', () => {
+                // Read settings from modal
+                videoSettings.format = videoFormatSelect.value;
+                videoSettings.quality = videoQualitySelect.value;
+                videoSettings.framerate = parseInt(videoFramerateSelect.value);
+                videoSettings.duration = parseInt(videoDurationSelect.value);
+                videoMaxDuration = videoSettings.duration * 1000;
+
+                hideVideoSettingsModal();
+                startVideoRecording();
+            });
+            videoSettingsModal.addEventListener('click', (e) => {
+                // Close on overlay click
+                if (e.target === videoSettingsModal) {
+                    hideVideoSettingsModal();
                 }
             });
 
@@ -2504,6 +2704,57 @@
             gif.render();
         }
 
+        // Video Settings Modal
+        function showVideoSettingsModal() {
+            if (!isVideoPlaying) {
+                showToast('Play the video first to record');
+                return;
+            }
+            if (asciiCanvas.style.display === 'none' || asciiCanvas.width === 0) {
+                showToast('Canvas not ready for recording');
+                return;
+            }
+
+            // Update format options based on browser support
+            updateFormatOptions();
+
+            videoSettingsModal.classList.add('show');
+        }
+
+        function hideVideoSettingsModal() {
+            videoSettingsModal.classList.remove('show');
+        }
+
+        function updateFormatOptions() {
+            // Check which formats are supported
+            const formats = [
+                { value: 'webm-vp9', mime: 'video/webm;codecs=vp9', label: 'WebM (VP9) - Best quality' },
+                { value: 'webm-vp8', mime: 'video/webm;codecs=vp8', label: 'WebM (VP8) - Compatible' },
+                { value: 'mp4', mime: 'video/mp4', label: 'MP4 (H.264) - Safari' }
+            ];
+
+            videoFormatSelect.innerHTML = '';
+            let firstSupported = null;
+
+            for (const format of formats) {
+                const supported = MediaRecorder.isTypeSupported(format.mime);
+                const option = document.createElement('option');
+                option.value = format.value;
+                option.textContent = format.label + (supported ? '' : ' (not supported)');
+                option.disabled = !supported;
+                videoFormatSelect.appendChild(option);
+
+                if (supported && !firstSupported) {
+                    firstSupported = format.value;
+                }
+            }
+
+            // Select first supported format
+            if (firstSupported) {
+                videoFormatSelect.value = firstSupported;
+            }
+        }
+
         // Video Recording (MediaRecorder API)
         function startVideoRecording() {
             if (!isVideoPlaying) {
@@ -2517,22 +2768,21 @@
                 return;
             }
 
-            // Get canvas stream
-            const stream = asciiCanvas.captureStream(30); // 30 FPS
+            // Get canvas stream with selected framerate
+            const stream = asciiCanvas.captureStream(videoSettings.framerate);
 
-            // Determine supported MIME type
-            const mimeTypes = [
-                'video/webm;codecs=vp9',
-                'video/webm;codecs=vp8',
-                'video/webm',
-                'video/mp4'
-            ];
-            let mimeType = '';
-            for (const type of mimeTypes) {
-                if (MediaRecorder.isTypeSupported(type)) {
-                    mimeType = type;
-                    break;
-                }
+            // Determine MIME type based on settings
+            const formatMimeMap = {
+                'webm-vp9': 'video/webm;codecs=vp9',
+                'webm-vp8': 'video/webm;codecs=vp8',
+                'mp4': 'video/mp4'
+            };
+            let mimeType = formatMimeMap[videoSettings.format];
+
+            // Fallback if selected format not supported
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+                const fallbacks = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
+                mimeType = fallbacks.find(m => MediaRecorder.isTypeSupported(m)) || '';
             }
 
             if (!mimeType) {
@@ -2540,11 +2790,19 @@
                 return;
             }
 
+            // Determine bitrate based on quality setting
+            const qualityBitrateMap = {
+                'high': 8000000,    // 8 Mbps
+                'medium': 5000000,  // 5 Mbps
+                'low': 2000000      // 2 Mbps
+            };
+            const bitrate = qualityBitrateMap[videoSettings.quality] || 5000000;
+
             try {
                 videoChunks = [];
                 mediaRecorder = new MediaRecorder(stream, {
                     mimeType,
-                    videoBitsPerSecond: 5000000 // 5 Mbps
+                    videoBitsPerSecond: bitrate
                 });
 
                 mediaRecorder.ondataavailable = (e) => {
@@ -2592,7 +2850,7 @@
             const elapsed = performance.now() - videoStartTime;
             gifStatus.textContent = `Recording... ${(elapsed / 1000).toFixed(1)}s`;
 
-            if (elapsed >= VIDEO_MAX_DURATION || !isVideoPlaying) {
+            if (elapsed >= videoMaxDuration || !isVideoPlaying) {
                 stopVideoRecording();
                 return;
             }
