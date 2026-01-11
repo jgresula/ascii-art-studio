@@ -526,7 +526,7 @@
                         <input type="file" id="file-input" accept="image/*">
 
                         <div class="url-input-group">
-                            <input type="text" id="url-input" placeholder="Or paste image URL...">
+                            <input type="text" id="url-input" placeholder="Or paste image URL..." autocomplete="off" spellcheck="false">
                             <button class="btn btn-primary" id="load-url-btn">Load</button>
                         </div>
 
@@ -615,7 +615,7 @@
                                 </div>
                                 <div class="setting-row">
                                     <label for="custom-chars">Characters (dark to light)</label>
-                                    <input type="text" id="custom-chars" value="@%#+=*-:. " placeholder="Characters dark to light">
+                                    <input type="text" id="custom-chars" value="@%#+=*-:. " placeholder="Characters dark to light" autocomplete="off" spellcheck="false">
                                 </div>
                                 <div class="setting-row">
                                     <div class="inline-group">
@@ -657,7 +657,7 @@
                                 </div>
                                 <div class="setting-row">
                                     <label for="pattern-chars">Character Pool</label>
-                                    <input type="text" id="pattern-chars" value="@#$%&8BMW*oahkbdpqwmZO0QCJYXzcvunxrjft/\|()1{}[]?-_+~<>i!lI;:,. " placeholder="Characters to use">
+                                    <input type="text" id="pattern-chars" value="@#$%&8BMW*oahkbdpqwmZO0QCJYXzcvunxrjft/\|()1{}[]?-_+~<>i!lI;:,. " placeholder="Characters to use" autocomplete="off" spellcheck="false">
                                 </div>
                             </div>
                         </div>
@@ -737,6 +737,10 @@
                         </div>
                     </div>
                 </div>
+
+                <button class="btn btn-secondary btn-block" id="reset-settings-btn" style="margin-top: 16px;">
+                    Reset All Settings
+                </button>
             </aside>
 
             <main class="output-area">
@@ -999,6 +1003,7 @@
         const copyHtmlBtn = document.getElementById('copy-html-btn');
         const copyMarkdownBtn = document.getElementById('copy-markdown-btn');
         const downloadPngBtn = document.getElementById('download-png-btn');
+        const resetSettingsBtn = document.getElementById('reset-settings-btn');
         const toast = document.getElementById('toast');
 
         // Display settings
@@ -1443,6 +1448,62 @@
             copyHtmlBtn.addEventListener('click', copyAsHtml);
             copyMarkdownBtn.addEventListener('click', copyAsMarkdown);
             downloadPngBtn.addEventListener('click', downloadAsPng);
+            resetSettingsBtn.addEventListener('click', resetAllSettings);
+        }
+
+        function resetAllSettings() {
+            // Display settings
+            themeSelect.value = 'dark';
+            applyTheme('dark');
+            charsPerRow.value = 100;
+            fontSize.value = 10;
+            fontFamily.selectedIndex = 0;
+            charRatio.value = 0.5;
+            autoRatio.checked = true;
+            charRatio.disabled = true;
+
+            // Algorithm
+            algorithm.value = 'brightness';
+
+            // Character set
+            charSet.value = 'standard';
+            customChars.value = sortAndOptimizeChars(CHAR_SETS.standard, 0, fontFamily.value);
+
+            // Color settings
+            colorMode.value = 'truecolor';
+            contrast.value = 100;
+            brightnessBlend.value = 50;
+            colorSaturation.value = 100;
+            contrastHistogram.checked = false;
+            invertBrightness.checked = true; // dark theme default
+
+            // Mono colors
+            monoFg.value = '#ffffff';
+            monoBg.value = '#1a1a2e';
+
+            // Block pattern
+            patternChars.value = "@#$%&8BMW*oahkbdpqwmZO0QCJYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,. ";
+
+            // Edge detection
+            edgeThreshold.value = 50;
+
+            // Dithering
+            ditherStrength.value = 100;
+
+            // Update UI
+            updateDisplaySettings();
+            updateCharRatio();
+            updateAlgorithmPanel();
+            initColorModeVisibility();
+            initSliderValues();
+            updateMonoColors();
+
+            // Re-convert if image loaded
+            if (currentImage) {
+                convertToAscii();
+            }
+
+            showToast('Settings reset to defaults');
         }
 
         function updateDisplaySettings() {
