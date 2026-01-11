@@ -563,7 +563,6 @@
                                 <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
                                     <input type="checkbox" id="video-loop"> Loop
                                 </label>
-                                <span id="video-fps">FPS: --</span>
                             </div>
                         </div>
                     </div>
@@ -810,6 +809,7 @@
                             <span>Converting...</span>
                         </div>
                         <span class="output-info" id="output-info"></span>
+                        <span class="output-info" id="video-fps" style="display: none;"></span>
                     </div>
                 </div>
 
@@ -2187,6 +2187,8 @@
             isVideoPlaying = true;
             videoPlayBtn.style.display = 'none';
             videoPauseBtn.style.display = '';
+            videoFps.style.display = '';
+            videoFps.textContent = 'FPS: --';
             frameCount = 0;
             fpsUpdateTime = performance.now();
             videoAnimationId = requestAnimationFrame(videoPlaybackLoop);
@@ -2198,6 +2200,7 @@
             isVideoPlaying = false;
             videoPlayBtn.style.display = '';
             videoPauseBtn.style.display = 'none';
+            videoFps.style.display = 'none';
             if (videoAnimationId) {
                 cancelAnimationFrame(videoAnimationId);
                 videoAnimationId = null;
@@ -2223,7 +2226,7 @@
                 stopGifRecording(false);
             }
             gifFrames = [];
-            videoFps.textContent = 'FPS: --';
+            videoFps.style.display = 'none';
             videoControls.style.display = 'none';
             videoPreview.style.display = 'none';
             gifExportControls.style.display = 'none';
