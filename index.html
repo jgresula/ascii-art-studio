@@ -2701,8 +2701,8 @@
             ctx.font = `${fontSize.value}px ${fontFamily.value}`;
             ctx.textBaseline = 'top';
 
-            if (isColored) {
-                // Parse colored HTML and render each character
+            if (isColored || (isMono && brightnessOpacity.checked)) {
+                // Parse colored HTML and render each character with opacity support
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = lastColoredHtml;
 
@@ -2717,6 +2717,7 @@
                                 x = padding;
                                 y += charHeight;
                             } else {
+                                ctx.globalAlpha = 1;
                                 ctx.fillStyle = isDarkMode() ? '#f0f0f0' : '#000000';
                                 ctx.fillText(char, x, y);
                                 x += charWidth;
@@ -2725,19 +2726,32 @@
                     } else if (node.tagName === 'SPAN') {
                         const color = node.style.color || (isDarkMode() ? '#f0f0f0' : '#000000');
                         const char = node.textContent;
-                        ctx.fillStyle = color;
+                        // Parse rgba to extract alpha for canvas
+                        const rgbaMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+                        if (rgbaMatch) {
+                            const alpha = rgbaMatch[4] !== undefined ? parseFloat(rgbaMatch[4]) : 1;
+                            ctx.globalAlpha = alpha;
+                            ctx.fillStyle = `rgb(${rgbaMatch[1]},${rgbaMatch[2]},${rgbaMatch[3]})`;
+                        } else {
+                            ctx.globalAlpha = 1;
+                            ctx.fillStyle = color;
+                        }
                         ctx.fillText(char, x, y);
                         x += charWidth;
                     }
                 }
+                ctx.globalAlpha = 1; // Reset
             } else {
-                // Render plain text
+                // Render plain text with global opacity
                 const textColor = isMono ? monoFg.value : (isDarkMode() ? '#f0f0f0' : '#000000');
+                const baseOpacity = parseInt(globalOpacity.value) / 100;
+                ctx.globalAlpha = baseOpacity;
                 ctx.fillStyle = textColor;
 
                 lines.forEach((line, i) => {
                     ctx.fillText(line, padding, padding + i * charHeight);
                 });
+                ctx.globalAlpha = 1; // Reset
             }
 
             // Download
