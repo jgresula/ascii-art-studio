@@ -2082,6 +2082,7 @@
                         asciiOutput.innerHTML = html;
                         lastColoredHtml = html;
                     }
+                    asciiOutput.style.opacity = '';
                     asciiContainer.style.backgroundColor = '';
                 } else {
                     // Monochrome with custom colors
@@ -2090,8 +2091,8 @@
 
                     asciiContainer.style.backgroundColor = monoBg.value;
 
-                    if (baseOpacity < 1 || useBrightnessOpacity) {
-                        // Need spans for opacity support
+                    if (useBrightnessOpacity) {
+                        // Need spans for per-character opacity
                         const { imageData } = getScaledImageData(currentImage, result.width);
                         const pixels = imageData.data;
                         const invert = invertBrightness.checked;
@@ -2108,28 +2109,23 @@
                                 const char = lines[y] ? lines[y][x] : ' ';
                                 if (!char) continue;
 
-                                let opacity = baseOpacity;
-                                if (useBrightnessOpacity) {
-                                    const pi = (y * result.width + x) * 4;
-                                    let brightness = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
-                                    if (invert) brightness = 1 - brightness;
-                                    opacity *= (1 - brightness);
-                                }
+                                const pi = (y * result.width + x) * 4;
+                                let brightness = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
+                                if (invert) brightness = 1 - brightness;
+                                const opacity = baseOpacity * (1 - brightness);
 
                                 const escaped = escapeHtml(char);
-                                if (opacity < 1) {
-                                    html += `<span style="color:rgba(${fgR},${fgG},${fgB},${opacity.toFixed(2)})">${escaped}</span>`;
-                                } else {
-                                    html += `<span style="color:rgb(${fgR},${fgG},${fgB})">${escaped}</span>`;
-                                }
+                                html += `<span style="color:rgba(${fgR},${fgG},${fgB},${opacity.toFixed(2)})">${escaped}</span>`;
                             }
                             html += '\n';
                         }
                         asciiOutput.innerHTML = html;
+                        asciiOutput.style.opacity = '';
                         lastColoredHtml = html;
                     } else {
-                        // Plain text for full opacity without brightness-as-opacity
+                        // Plain text - use CSS opacity for global opacity
                         asciiOutput.style.color = monoFg.value;
+                        asciiOutput.style.opacity = baseOpacity < 1 ? baseOpacity : '';
                         asciiOutput.innerHTML = '';
                         asciiOutput.textContent = result.ascii;
                         lastColoredHtml = '';
