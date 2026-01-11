@@ -1016,7 +1016,7 @@
         function measureCharBrightness(char, fontFamilyValue) {
             const size = 24;
             const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
             canvas.width = size;
             canvas.height = size;
 
@@ -1218,6 +1218,10 @@
         let frameCount = 0;
         let fpsUpdateTime = 0;
         let currentFps = 0;
+
+        // Reusable video frame extraction objects
+        let videoFrameCanvas = null;
+        let videoFrameCtx = null;
 
         // GIF recording state
         let isRecordingGif = false;
@@ -2139,21 +2143,19 @@
         function convertVideoFrame() {
             if (!currentVideo) return;
 
-            // Create a canvas to extract frame
-            const canvas = document.createElement('canvas');
-            canvas.width = currentVideo.videoWidth;
-            canvas.height = currentVideo.videoHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(currentVideo, 0, 0);
-
-            // Create image from canvas
-            const img = new Image();
-            img.src = canvas.toDataURL();
-            img.onload = () => {
-                currentImage = img;
-                cachedPalette = null;
-                convertToAscii();
+            // Create video frame proxy that works with drawImage and has width/height
+            // This avoids creating new canvas/image objects every frame
+            const videoProxy = {
+                width: currentVideo.videoWidth,
+                height: currentVideo.videoHeight,
+                // Used by drawImage - we draw from the video element directly
+                _source: currentVideo
             };
+
+            // Store as currentImage for conversion (conversion will use this with drawImage)
+            currentImage = videoProxy;
+            cachedPalette = null;
+            convertToAscii();
         }
 
         function videoPlaybackLoop(timestamp) {
@@ -2209,16 +2211,18 @@
             }
             isVideoPlaying = false;
             isVideoMode = false;
+            currentVideo = null;
             videoPlayBtn.style.display = '';
             videoPauseBtn.style.display = 'none';
             if (videoAnimationId) {
                 cancelAnimationFrame(videoAnimationId);
                 videoAnimationId = null;
             }
-            // Stop any GIF recording
+            // Stop any GIF recording and clear frames
             if (isRecordingGif) {
                 stopGifRecording(false);
             }
+            gifFrames = [];
             videoFps.textContent = 'FPS: --';
             videoControls.style.display = 'none';
             videoPreview.style.display = 'none';
@@ -2292,27 +2296,38 @@
         }
 
         function captureGifFrame() {
-            // Capture ASCII output as canvas image
-            const canvas = document.createElement('canvas');
-            const rect = asciiOutput.getBoundingClientRect();
-            const scale = 1; // Could increase for higher quality
-
-            canvas.width = rect.width * scale;
-            canvas.height = rect.height * scale;
-
-            const ctx = canvas.getContext('2d');
-            ctx.scale(scale, scale);
-
-            // Draw background
-            const bgColor = isDarkMode() ? '#0d0d0d' : '#ffffff';
-            ctx.fillStyle = bgColor;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
             // Get computed styles
             const styles = window.getComputedStyle(asciiOutput);
             const fontSizeVal = parseFloat(styles.fontSize);
             const lineHeight = parseFloat(styles.lineHeight) || fontSizeVal * 1.2;
             const fontFamilyVal = styles.fontFamily;
+
+            // Calculate actual content size based on ASCII dimensions
+            const text = asciiOutput.textContent;
+            const lines = text.split('\n');
+            const numLines = lines.length;
+            const maxLineLength = Math.max(...lines.map(l => l.length));
+
+            // Create measuring canvas to get accurate character width
+            const measureCanvas = document.createElement('canvas');
+            const measureCtx = measureCanvas.getContext('2d');
+            measureCtx.font = `${fontSizeVal}px ${fontFamilyVal}`;
+            const charWidth = measureCtx.measureText('M').width; // Use monospace char width
+
+            // Calculate canvas size based on content, not container
+            const contentWidth = Math.ceil(maxLineLength * charWidth);
+            const contentHeight = Math.ceil(numLines * lineHeight);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = contentWidth;
+            canvas.height = contentHeight;
+
+            const ctx = canvas.getContext('2d');
+
+            // Draw background
+            const bgColor = isDarkMode() ? '#0d0d0d' : '#ffffff';
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             ctx.font = `${fontSizeVal}px ${fontFamilyVal}`;
             ctx.textBaseline = 'top';
@@ -2321,7 +2336,6 @@
             const isMono = colorMode.value === 'monochrome';
             if (isMono) {
                 ctx.fillStyle = monoFg.value;
-                const lines = asciiOutput.textContent.split('\n');
                 lines.forEach((line, i) => {
                     ctx.fillText(line, 0, i * lineHeight);
                 });
@@ -2331,11 +2345,11 @@
                 if (spans.length > 0) {
                     let x = 0, y = 0;
                     spans.forEach(span => {
-                        const text = span.textContent;
+                        const spanText = span.textContent;
                         const color = span.style.color || styles.color;
                         ctx.fillStyle = color;
 
-                        for (const char of text) {
+                        for (const char of spanText) {
                             if (char === '\n') {
                                 x = 0;
                                 y += lineHeight;
@@ -2482,7 +2496,10 @@
         function convertToAscii() {
             if (!currentImage) return;
 
-            showLoading(true);
+            // Don't show loading spinner during video playback (would flicker)
+            if (!isVideoPlaying) {
+                showLoading(true);
+            }
             // Don't clear output here - update in place to prevent flicker
 
             setTimeout(() => {
@@ -2581,7 +2598,9 @@
                 lastConversionTime = performance.now() - startTime;
 
                 outputInfo.textContent = `${result.width} × ${result.height} chars`;
-                showLoading(false);
+                if (!isVideoPlaying) {
+                    showLoading(false);
+                }
             }, 10);
         }
 
@@ -2701,10 +2720,12 @@
             const height = Math.max(1, Math.round(width * imgAspect * ratio));
 
             const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
             canvas.width = width;
             canvas.height = height;
-            ctx.drawImage(img, 0, 0, width, height);
+            // Support video proxy objects with _source property
+            const source = img._source || img;
+            ctx.drawImage(source, 0, 0, width, height);
 
             return {
                 imageData: ctx.getImageData(0, 0, width, height),
@@ -2888,10 +2909,11 @@
             const outputHeight = Math.floor(sampleHeight / blockSize);
 
             const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
             canvas.width = sampleWidth;
             canvas.height = sampleHeight;
-            ctx.drawImage(img, 0, 0, sampleWidth, sampleHeight);
+            const source = img._source || img;
+            ctx.drawImage(source, 0, 0, sampleWidth, sampleHeight);
             const imageData = ctx.getImageData(0, 0, sampleWidth, sampleHeight);
             const pixels = imageData.data;
 
@@ -2955,7 +2977,7 @@
 
             // Downsample canvas
             const sampleCanvas = document.createElement('canvas');
-            const sampleCtx = sampleCanvas.getContext('2d');
+            const sampleCtx = sampleCanvas.getContext('2d', { willReadFrequently: true });
             sampleCanvas.width = blockSize;
             sampleCanvas.height = blockSize;
 
