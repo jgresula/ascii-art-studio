@@ -1496,11 +1496,18 @@
                         b = Math.round(gray + saturation * (b - gray));
                     }
 
-                    // Apply brightness blend
-                    if (blend > 0 && brightnessData) {
+                    // Apply brightness blend (50% = neutral, <50% = brighten dark areas, >50% = darken dark areas)
+                    if (blend !== 0.5 && brightnessData) {
                         const charBrightness = brightnessData[y * width + x];
-                        // Modulate color by character brightness
-                        const factor = 1 - blend + blend * charBrightness;
+                        const adjustedBlend = (blend - 0.5) * 2; // -1 to +1
+                        let factor;
+                        if (adjustedBlend >= 0) {
+                            // Darken dark areas proportional to their darkness
+                            factor = 1 - adjustedBlend * (1 - charBrightness);
+                        } else {
+                            // Brighten dark areas proportional to their darkness
+                            factor = 1 + Math.abs(adjustedBlend) * (1 - charBrightness);
+                        }
                         r = Math.round(r * factor);
                         g = Math.round(g * factor);
                         b = Math.round(b * factor);
