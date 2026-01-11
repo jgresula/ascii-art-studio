@@ -1064,6 +1064,8 @@
             updateCharRatio();
             updateAlgorithmPanel();
             updateMonoColors();
+            initColorModeVisibility();
+            initSliderValues();
 
             // Listen for system theme changes
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
@@ -1103,6 +1105,23 @@
             const dark = isDarkMode();
             monoFg.value = dark ? '#f0f0f0' : '#000000';
             monoBg.value = dark ? '#0d0d0d' : '#ffffff';
+        }
+
+        function initColorModeVisibility() {
+            const isMono = colorMode.value === 'monochrome';
+            monoSettings.style.display = isMono ? 'block' : 'none';
+            colorSettings.forEach(el => el.style.display = isMono ? 'none' : 'block');
+        }
+
+        function initSliderValues() {
+            // Initialize all slider value displays from actual slider values
+            fontSizeValue.textContent = fontSize.value;
+            charsValue.textContent = charsPerRow.value;
+            contrastAmountValue.textContent = contrastAmount.value;
+            edgeThresholdValue.textContent = edgeThreshold.value;
+            ditherStrengthValue.textContent = ditherStrength.value;
+            brightnessBlendValue.textContent = brightnessBlend.value;
+            colorSaturationValue.textContent = colorSaturation.value;
         }
 
         function setupEventListeners() {
