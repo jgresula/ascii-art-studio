@@ -593,12 +593,20 @@
                             <div class="algo-settings-panel active" id="settings-brightness">
                                 <div class="setting-row">
                                     <label for="char-set">Character Set</label>
-                                    <select id="char-set">
-                                        <option value="standard">Standard</option>
-                                        <option value="detailed">Detailed</option>
-                                        <option value="blocks">Blocks</option>
-                                        <option value="simple">Simple</option>
-                                    </select>
+                                    <div class="inline-group">
+                                        <select id="char-set" style="flex: 1;">
+                                            <optgroup label="Built-in">
+                                                <option value="standard">Standard</option>
+                                                <option value="detailed">Detailed</option>
+                                                <option value="blocks">Blocks</option>
+                                                <option value="simple">Simple</option>
+                                            </optgroup>
+                                            <optgroup label="Custom" id="char-set-custom-group">
+                                            </optgroup>
+                                        </select>
+                                        <button class="btn btn-secondary btn-small" id="save-chars-btn" title="Save current characters as preset">Save</button>
+                                        <button class="btn btn-secondary btn-small" id="delete-chars-btn" title="Delete selected custom preset" style="display: none;">Del</button>
+                                    </div>
                                 </div>
                                 <div class="setting-row">
                                     <label for="custom-chars">Characters (dark to light)</label>
@@ -627,12 +635,20 @@
                             <div class="algo-settings-panel" id="settings-dithering">
                                 <div class="setting-row">
                                     <label for="dither-char-set">Character Set</label>
-                                    <select id="dither-char-set">
-                                        <option value="standard">Standard</option>
-                                        <option value="detailed">Detailed</option>
-                                        <option value="blocks">Blocks</option>
-                                        <option value="simple">Simple</option>
-                                    </select>
+                                    <div class="inline-group">
+                                        <select id="dither-char-set" style="flex: 1;">
+                                            <optgroup label="Built-in">
+                                                <option value="standard">Standard</option>
+                                                <option value="detailed">Detailed</option>
+                                                <option value="blocks">Blocks</option>
+                                                <option value="simple">Simple</option>
+                                            </optgroup>
+                                            <optgroup label="Custom" id="dither-char-set-custom-group">
+                                            </optgroup>
+                                        </select>
+                                        <button class="btn btn-secondary btn-small" id="save-dither-chars-btn" title="Save current characters as preset">Save</button>
+                                        <button class="btn btn-secondary btn-small" id="delete-dither-chars-btn" title="Delete selected custom preset" style="display: none;">Del</button>
+                                    </div>
                                 </div>
                                 <div class="setting-row">
                                     <label for="dither-chars">Characters (dark to light)</label>
@@ -1017,9 +1033,12 @@
 
         // Brightness settings
         const charSet = document.getElementById('char-set');
+        const charSetCustomGroup = document.getElementById('char-set-custom-group');
         const customChars = document.getElementById('custom-chars');
         const sortCharsBtn = document.getElementById('sort-chars-btn');
         const reduceCount = document.getElementById('reduce-count');
+        const saveCharsBtn = document.getElementById('save-chars-btn');
+        const deleteCharsBtn = document.getElementById('delete-chars-btn');
 
         // Edge settings
         const edgeThreshold = document.getElementById('edge-threshold');
@@ -1027,9 +1046,12 @@
 
         // Dithering settings
         const ditherCharSet = document.getElementById('dither-char-set');
+        const ditherCharSetCustomGroup = document.getElementById('dither-char-set-custom-group');
         const ditherChars = document.getElementById('dither-chars');
         const sortDitherCharsBtn = document.getElementById('sort-dither-chars-btn');
         const ditherReduceCount = document.getElementById('dither-reduce-count');
+        const saveDitherCharsBtn = document.getElementById('save-dither-chars-btn');
+        const deleteDitherCharsBtn = document.getElementById('delete-dither-chars-btn');
         const ditherStrength = document.getElementById('dither-strength');
         const ditherStrengthValue = document.getElementById('dither-strength-value');
 
@@ -1221,20 +1243,119 @@
             colorSaturationValue.textContent = colorSaturation.value;
         }
 
-        // Character set persistence
-        function saveCustomChars() {
-            localStorage.setItem('ascii-custom-chars', customChars.value);
+        // Character set preset management
+        function getCustomPresets() {
+            return JSON.parse(localStorage.getItem('ascii-custom-presets') || '{}');
         }
 
-        function saveDitherChars() {
-            localStorage.setItem('ascii-dither-chars', ditherChars.value);
+        function saveCustomPreset(name, chars) {
+            const presets = getCustomPresets();
+            presets[name] = chars;
+            localStorage.setItem('ascii-custom-presets', JSON.stringify(presets));
         }
 
+        function deleteCustomPreset(name) {
+            const presets = getCustomPresets();
+            delete presets[name];
+            localStorage.setItem('ascii-custom-presets', JSON.stringify(presets));
+        }
+
+        function populateCustomPresets() {
+            const presets = getCustomPresets();
+            const names = Object.keys(presets).sort();
+
+            // Populate brightness char set dropdown
+            charSetCustomGroup.innerHTML = '';
+            for (const name of names) {
+                const option = document.createElement('option');
+                option.value = 'custom:' + name;
+                option.textContent = name;
+                charSetCustomGroup.appendChild(option);
+            }
+
+            // Populate dithering char set dropdown
+            ditherCharSetCustomGroup.innerHTML = '';
+            for (const name of names) {
+                const option = document.createElement('option');
+                option.value = 'custom:' + name;
+                option.textContent = name;
+                ditherCharSetCustomGroup.appendChild(option);
+            }
+        }
+
+        function isCustomPreset(value) {
+            return value && value.startsWith('custom:');
+        }
+
+        function getPresetName(value) {
+            return value.replace('custom:', '');
+        }
+
+        function updateDeleteButtonVisibility() {
+            deleteCharsBtn.style.display = isCustomPreset(charSet.value) ? 'inline-block' : 'none';
+            deleteDitherCharsBtn.style.display = isCustomPreset(ditherCharSet.value) ? 'inline-block' : 'none';
+        }
+
+        function handleSavePreset(charsInput, selectEl) {
+            const chars = charsInput.value.trim();
+            if (!chars) {
+                showToast('No characters to save');
+                return;
+            }
+
+            const name = prompt('Enter a name for this character set:');
+            if (!name || !name.trim()) return;
+
+            const trimmedName = name.trim();
+            if (CHAR_SETS[trimmedName.toLowerCase()]) {
+                showToast('Cannot use a built-in preset name');
+                return;
+            }
+
+            saveCustomPreset(trimmedName, chars);
+            populateCustomPresets();
+            selectEl.value = 'custom:' + trimmedName;
+            updateDeleteButtonVisibility();
+            showToast('Preset saved: ' + trimmedName);
+        }
+
+        function handleDeletePreset(selectEl, charsInput) {
+            const value = selectEl.value;
+            if (!isCustomPreset(value)) return;
+
+            const name = getPresetName(value);
+            if (!confirm('Delete preset "' + name + '"?')) return;
+
+            deleteCustomPreset(name);
+            populateCustomPresets();
+            selectEl.value = 'standard';
+            charsInput.value = CHAR_SETS.standard;
+            updateDeleteButtonVisibility();
+            showToast('Preset deleted');
+            if (currentImage) convertToAscii();
+        }
+
+        function handlePresetChange(selectEl, charsInput) {
+            const value = selectEl.value;
+            if (isCustomPreset(value)) {
+                const name = getPresetName(value);
+                const presets = getCustomPresets();
+                charsInput.value = presets[name] || CHAR_SETS.standard;
+            } else {
+                charsInput.value = CHAR_SETS[value] || CHAR_SETS.standard;
+            }
+            updateDeleteButtonVisibility();
+            if (currentImage) convertToAscii();
+        }
+
+        // Legacy character persistence (for backwards compatibility)
         function loadSavedChars() {
             const savedCustom = localStorage.getItem('ascii-custom-chars');
             const savedDither = localStorage.getItem('ascii-dither-chars');
             if (savedCustom) customChars.value = savedCustom;
             if (savedDither) ditherChars.value = savedDither;
+            populateCustomPresets();
+            updateDeleteButtonVisibility();
         }
 
         function setupEventListeners() {
@@ -1297,20 +1418,15 @@
             });
 
             // Brightness settings
-            charSet.addEventListener('change', () => {
-                customChars.value = CHAR_SETS[charSet.value] || CHAR_SETS.standard;
-                if (currentImage) convertToAscii();
-            });
-            customChars.addEventListener('input', () => {
-                saveCustomChars();
-                if (currentImage) convertToAscii();
-            });
+            charSet.addEventListener('change', () => handlePresetChange(charSet, customChars));
+            customChars.addEventListener('input', () => { if (currentImage) convertToAscii(); });
             sortCharsBtn.addEventListener('click', () => {
                 const count = parseInt(reduceCount.value) || 0;
                 customChars.value = sortAndOptimizeChars(customChars.value, count, fontFamily.value);
-                saveCustomChars();
                 if (currentImage) convertToAscii();
             });
+            saveCharsBtn.addEventListener('click', () => handleSavePreset(customChars, charSet));
+            deleteCharsBtn.addEventListener('click', () => handleDeletePreset(charSet, customChars));
 
             // Edge settings
             edgeThreshold.addEventListener('input', () => {
@@ -1319,20 +1435,15 @@
             });
 
             // Dithering settings
-            ditherCharSet.addEventListener('change', () => {
-                ditherChars.value = CHAR_SETS[ditherCharSet.value] || CHAR_SETS.standard;
-                if (currentImage) convertToAscii();
-            });
-            ditherChars.addEventListener('input', () => {
-                saveDitherChars();
-                if (currentImage) convertToAscii();
-            });
+            ditherCharSet.addEventListener('change', () => handlePresetChange(ditherCharSet, ditherChars));
+            ditherChars.addEventListener('input', () => { if (currentImage) convertToAscii(); });
             sortDitherCharsBtn.addEventListener('click', () => {
                 const count = parseInt(ditherReduceCount.value) || 0;
                 ditherChars.value = sortAndOptimizeChars(ditherChars.value, count, fontFamily.value);
-                saveDitherChars();
                 if (currentImage) convertToAscii();
             });
+            saveDitherCharsBtn.addEventListener('click', () => handleSavePreset(ditherChars, ditherCharSet));
+            deleteDitherCharsBtn.addEventListener('click', () => handleDeletePreset(ditherCharSet, ditherChars));
             ditherStrength.addEventListener('input', () => {
                 ditherStrengthValue.textContent = ditherStrength.value;
                 if (currentImage) convertToAscii();
