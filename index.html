@@ -645,35 +645,6 @@
                             <!-- Dithering Settings -->
                             <div class="algo-settings-panel" id="settings-dithering">
                                 <div class="setting-row">
-                                    <label for="dither-char-set">Character Set</label>
-                                    <div class="inline-group">
-                                        <select id="dither-char-set" style="flex: 1;">
-                                            <optgroup label="Built-in">
-                                                <option value="standard">Standard</option>
-                                                <option value="detailed">Detailed</option>
-                                                <option value="blocks">Blocks</option>
-                                                <option value="simple">Simple</option>
-                                            </optgroup>
-                                            <optgroup label="Custom" id="dither-char-set-custom-group">
-                                            </optgroup>
-                                        </select>
-                                        <button class="btn btn-secondary btn-small" id="save-dither-chars-btn" title="Save current characters as preset">Save</button>
-                                        <button class="btn btn-secondary btn-small" id="delete-dither-chars-btn" title="Delete selected custom preset" style="display: none;">Del</button>
-                                    </div>
-                                </div>
-                                <div class="setting-row">
-                                    <label for="dither-chars">Characters (dark to light)</label>
-                                    <input type="text" id="dither-chars" value="@%#*+=-:. " placeholder="Characters dark to light">
-                                </div>
-                                <div class="setting-row">
-                                    <div class="inline-group">
-                                        <button class="btn btn-secondary btn-small" id="sort-dither-chars-btn" title="Sort characters by visual brightness">Sort</button>
-                                        <label for="dither-reduce-count" style="margin: 0; white-space: nowrap;">Reduce to</label>
-                                        <input type="number" id="dither-reduce-count" min="0" max="100" value="0" style="width: 60px;" title="0 = no reduction">
-                                        <span style="font-size: 0.85rem; color: var(--text-secondary);">chars</span>
-                                    </div>
-                                </div>
-                                <div class="setting-row">
                                     <label for="dither-strength">Error Diffusion Strength</label>
                                     <input type="range" id="dither-strength" min="0" max="100" value="100">
                                     <div class="setting-value"><span id="dither-strength-value">100</span>%</div>
@@ -1050,13 +1021,6 @@
         const edgeThresholdValue = document.getElementById('edge-threshold-value');
 
         // Dithering settings
-        const ditherCharSet = document.getElementById('dither-char-set');
-        const ditherCharSetCustomGroup = document.getElementById('dither-char-set-custom-group');
-        const ditherChars = document.getElementById('dither-chars');
-        const sortDitherCharsBtn = document.getElementById('sort-dither-chars-btn');
-        const ditherReduceCount = document.getElementById('dither-reduce-count');
-        const saveDitherCharsBtn = document.getElementById('save-dither-chars-btn');
-        const deleteDitherCharsBtn = document.getElementById('delete-dither-chars-btn');
         const ditherStrength = document.getElementById('dither-strength');
         const ditherStrengthValue = document.getElementById('dither-strength-value');
 
@@ -1270,22 +1234,13 @@
             const presets = getCustomPresets();
             const names = Object.keys(presets).sort();
 
-            // Populate brightness char set dropdown
+            // Populate char set dropdown
             charSetCustomGroup.innerHTML = '';
             for (const name of names) {
                 const option = document.createElement('option');
                 option.value = 'custom:' + name;
                 option.textContent = name;
                 charSetCustomGroup.appendChild(option);
-            }
-
-            // Populate dithering char set dropdown
-            ditherCharSetCustomGroup.innerHTML = '';
-            for (const name of names) {
-                const option = document.createElement('option');
-                option.value = 'custom:' + name;
-                option.textContent = name;
-                ditherCharSetCustomGroup.appendChild(option);
             }
         }
 
@@ -1299,7 +1254,6 @@
 
         function updateDeleteButtonVisibility() {
             deleteCharsBtn.style.display = isCustomPreset(charSet.value) ? 'inline-block' : 'none';
-            deleteDitherCharsBtn.style.display = isCustomPreset(ditherCharSet.value) ? 'inline-block' : 'none';
         }
 
         function handleSavePreset(charsInput, selectEl) {
@@ -1343,13 +1297,18 @@
 
         function handlePresetChange(selectEl, charsInput) {
             const value = selectEl.value;
+            let chars;
             if (isCustomPreset(value)) {
+                // Custom presets: use as-saved (user's intentional order)
                 const name = getPresetName(value);
                 const presets = getCustomPresets();
-                charsInput.value = presets[name] || CHAR_SETS.standard;
+                chars = presets[name] || CHAR_SETS.standard;
             } else {
-                charsInput.value = CHAR_SETS[value] || CHAR_SETS.standard;
+                // Built-in presets: auto-sort for current font
+                const baseChars = CHAR_SETS[value] || CHAR_SETS.standard;
+                chars = sortAndOptimizeChars(baseChars, 0, fontFamily.value);
             }
+            charsInput.value = chars;
             updateDeleteButtonVisibility();
             if (currentImage) convertToAscii();
         }
@@ -1357,9 +1316,7 @@
         // Legacy character persistence (for backwards compatibility)
         function loadSavedChars() {
             const savedCustom = localStorage.getItem('ascii-custom-chars');
-            const savedDither = localStorage.getItem('ascii-dither-chars');
             if (savedCustom) customChars.value = savedCustom;
-            if (savedDither) ditherChars.value = savedDither;
             populateCustomPresets();
             updateDeleteButtonVisibility();
         }
@@ -1441,15 +1398,6 @@
             });
 
             // Dithering settings
-            ditherCharSet.addEventListener('change', () => handlePresetChange(ditherCharSet, ditherChars));
-            ditherChars.addEventListener('input', () => { if (currentImage) convertToAscii(); });
-            sortDitherCharsBtn.addEventListener('click', () => {
-                const count = parseInt(ditherReduceCount.value) || 0;
-                ditherChars.value = sortAndOptimizeChars(ditherChars.value, count, fontFamily.value);
-                if (currentImage) convertToAscii();
-            });
-            saveDitherCharsBtn.addEventListener('click', () => handleSavePreset(ditherChars, ditherCharSet));
-            deleteDitherCharsBtn.addEventListener('click', () => handleDeletePreset(ditherCharSet, ditherChars));
             ditherStrength.addEventListener('input', () => {
                 ditherStrengthValue.textContent = ditherStrength.value;
                 if (currentImage) convertToAscii();
@@ -1902,7 +1850,7 @@
             const width = parseInt(charsPerRow.value);
             const { imageData, height } = getScaledImageData(img, width);
             const pixels = imageData.data;
-            let chars = ditherChars.value || CHAR_SETS.standard;
+            let chars = customChars.value || CHAR_SETS.standard;
             if (invertBrightness.checked) {
                 chars = chars.split('').reverse().join('');
             }
