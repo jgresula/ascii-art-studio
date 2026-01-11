@@ -287,6 +287,11 @@
             margin-bottom: 4px;
         }
 
+        .setting-row.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
         .setting-row select {
             width: 100%;
             padding: 10px 12px;
@@ -550,6 +555,12 @@
                         </div>
 
                         <div class="setting-row">
+                            <label for="chars-per-row">Characters per row</label>
+                            <input type="range" id="chars-per-row" min="20" max="300" value="100">
+                            <div class="setting-value"><span id="chars-value">100</span> chars</div>
+                        </div>
+
+                        <div class="setting-row">
                             <label for="font-family">Font</label>
                             <select id="font-family">
                                 <!-- Populated dynamically based on available fonts -->
@@ -692,32 +703,6 @@
                     <h3>Output Settings</h3>
                     <div class="section-content">
                         <div class="setting-row">
-                            <label for="chars-per-row">Characters per row</label>
-                            <input type="range" id="chars-per-row" min="20" max="300" value="100">
-                            <div class="setting-value"><span id="chars-value">100</span> chars</div>
-                        </div>
-
-                        <div class="setting-row">
-                            <div class="checkbox-row">
-                                <input type="checkbox" id="invert-brightness">
-                                <label for="invert-brightness" style="margin: 0;">Invert brightness</label>
-                            </div>
-                        </div>
-
-                        <div class="setting-row">
-                            <label for="contrast-amount">Contrast</label>
-                            <input type="range" id="contrast-amount" min="50" max="300" value="100">
-                            <div class="setting-value"><span id="contrast-amount-value">100</span>%</div>
-                        </div>
-
-                        <div class="setting-row">
-                            <div class="checkbox-row">
-                                <input type="checkbox" id="contrast-histogram">
-                                <label for="contrast-histogram" style="margin: 0;">Histogram equalization</label>
-                            </div>
-                        </div>
-
-                        <div class="setting-row">
                             <label for="color-mode">Color Mode</label>
                             <select id="color-mode">
                                 <option value="monochrome">Monochrome</option>
@@ -740,13 +725,33 @@
                             </div>
                         </div>
 
-                        <div class="setting-row color-settings" style="display: none;">
+                        <div class="setting-row">
+                            <div class="checkbox-row">
+                                <input type="checkbox" id="invert-brightness">
+                                <label for="invert-brightness" style="margin: 0;">Invert brightness</label>
+                            </div>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="checkbox-row">
+                                <input type="checkbox" id="contrast-histogram">
+                                <label for="contrast-histogram" style="margin: 0;">Histogram equalization</label>
+                            </div>
+                        </div>
+
+                        <div class="setting-row">
+                            <label for="contrast-amount">Contrast</label>
+                            <input type="range" id="contrast-amount" min="50" max="300" value="100">
+                            <div class="setting-value"><span id="contrast-amount-value">100</span>%</div>
+                        </div>
+
+                        <div class="setting-row color-slider">
                             <label for="brightness-blend">Brightness blend</label>
                             <input type="range" id="brightness-blend" min="0" max="100" value="50">
                             <div class="setting-value"><span id="brightness-blend-value">50</span>%</div>
                         </div>
 
-                        <div class="setting-row color-settings" style="display: none;">
+                        <div class="setting-row color-slider">
                             <label for="color-saturation">Saturation</label>
                             <input type="range" id="color-saturation" min="0" max="200" value="100">
                             <div class="setting-value"><span id="color-saturation-value">100</span>%</div>
@@ -1065,7 +1070,7 @@
         const contrastAmountValue = document.getElementById('contrast-amount-value');
         const contrastHistogram = document.getElementById('contrast-histogram');
         const colorMode = document.getElementById('color-mode');
-        const colorSettings = document.querySelectorAll('.color-settings');
+        const colorSliders = document.querySelectorAll('.color-slider');
         const brightnessBlend = document.getElementById('brightness-blend');
         const brightnessBlendValue = document.getElementById('brightness-blend-value');
         const colorSaturation = document.getElementById('color-saturation');
@@ -1230,7 +1235,7 @@
         function initColorModeVisibility() {
             const isMono = colorMode.value === 'monochrome';
             monoSettings.style.display = isMono ? 'block' : 'none';
-            colorSettings.forEach(el => el.style.display = isMono ? 'none' : 'block');
+            colorSliders.forEach(el => el.classList.toggle('disabled', isMono));
         }
 
         function initSliderValues() {
@@ -1464,7 +1469,7 @@
             colorMode.addEventListener('change', () => {
                 const isMono = colorMode.value === 'monochrome';
                 monoSettings.style.display = isMono ? 'block' : 'none';
-                colorSettings.forEach(el => el.style.display = isMono ? 'none' : 'block');
+                colorSliders.forEach(el => el.classList.toggle('disabled', isMono));
                 cachedPalette = null; // Clear palette cache
                 if (currentImage) convertToAscii();
             });
