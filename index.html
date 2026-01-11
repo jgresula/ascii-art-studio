@@ -257,6 +257,11 @@
             color: white;
         }
 
+        .btn-small {
+            padding: 6px 10px;
+            font-size: 0.8rem;
+        }
+
         .btn-block {
             width: 100%;
         }
@@ -599,6 +604,14 @@
                                     <label for="custom-chars">Characters (dark to light)</label>
                                     <input type="text" id="custom-chars" value="@%#+=*-:. " placeholder="Characters dark to light">
                                 </div>
+                                <div class="setting-row">
+                                    <div class="inline-group">
+                                        <button class="btn btn-secondary btn-small" id="sort-chars-btn" title="Sort characters by visual brightness">Sort</button>
+                                        <label for="reduce-count" style="margin: 0; white-space: nowrap;">Reduce to</label>
+                                        <input type="number" id="reduce-count" min="0" max="100" value="0" style="width: 60px;" title="0 = no reduction">
+                                        <span style="font-size: 0.85rem; color: var(--text-secondary);">chars</span>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Edge Detection Settings -->
@@ -624,6 +637,14 @@
                                 <div class="setting-row">
                                     <label for="dither-chars">Characters (dark to light)</label>
                                     <input type="text" id="dither-chars" value="@%#*+=-:. " placeholder="Characters dark to light">
+                                </div>
+                                <div class="setting-row">
+                                    <div class="inline-group">
+                                        <button class="btn btn-secondary btn-small" id="sort-dither-chars-btn" title="Sort characters by visual brightness">Sort</button>
+                                        <label for="dither-reduce-count" style="margin: 0; white-space: nowrap;">Reduce to</label>
+                                        <input type="number" id="dither-reduce-count" min="0" max="100" value="0" style="width: 60px;" title="0 = no reduction">
+                                        <span style="font-size: 0.85rem; color: var(--text-secondary);">chars</span>
+                                    </div>
                                 </div>
                                 <div class="setting-row">
                                     <label for="dither-strength">Error Diffusion Strength</label>
@@ -777,6 +798,77 @@
             none: ' '
         };
 
+        // Measure visual brightness of a character (0 = black/dense, 1 = white/empty)
+        function measureCharBrightness(char, fontFamilyValue) {
+            const size = 24;
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = size;
+            canvas.height = size;
+
+            // White background
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, size, size);
+
+            // Draw character in black
+            ctx.fillStyle = 'black';
+            ctx.font = `${size}px ${fontFamilyValue}`;
+            ctx.textBaseline = 'top';
+            ctx.textAlign = 'center';
+            ctx.fillText(char, size / 2, 0);
+
+            // Calculate average brightness (white pixels = 255, black = 0)
+            const imageData = ctx.getImageData(0, 0, size, size);
+            const pixels = imageData.data;
+            let total = 0;
+            for (let i = 0; i < pixels.length; i += 4) {
+                total += pixels[i]; // Red channel (grayscale)
+            }
+            // Return 0-1 where 0 = dense/dark character, 1 = empty/light character
+            return total / (size * size * 255);
+        }
+
+        // Sort characters by brightness and optionally reduce to N chars
+        function sortAndOptimizeChars(chars, reduceCount, fontFamilyValue) {
+            // Remove duplicates while preserving order
+            const uniqueChars = [...new Set(chars.split(''))];
+
+            // Check if space is included
+            const hasSpace = uniqueChars.includes(' ');
+            const charsToMeasure = uniqueChars.filter(c => c !== ' ');
+
+            // Measure brightness for each character
+            const measured = charsToMeasure.map(char => ({
+                char,
+                brightness: measureCharBrightness(char, fontFamilyValue)
+            }));
+
+            // Sort by brightness (dark to light)
+            measured.sort((a, b) => a.brightness - b.brightness);
+
+            let result = measured;
+
+            // Reduce to N chars if specified (and > 0)
+            if (reduceCount > 0 && reduceCount < measured.length) {
+                // Select characters at evenly-spaced brightness intervals
+                const reduced = [];
+                for (let i = 0; i < reduceCount; i++) {
+                    // Map i to index in sorted array
+                    const index = Math.round(i * (measured.length - 1) / (reduceCount - 1));
+                    reduced.push(measured[index]);
+                }
+                result = reduced;
+            }
+
+            // Build result string, add space at end if it was present
+            let resultStr = result.map(m => m.char).join('');
+            if (hasSpace) {
+                resultStr += ' ';
+            }
+
+            return resultStr;
+        }
+
         // ANSI 256 color palette (standard xterm colors)
         const ANSI_256 = (function() {
             const colors = [];
@@ -926,6 +1018,8 @@
         // Brightness settings
         const charSet = document.getElementById('char-set');
         const customChars = document.getElementById('custom-chars');
+        const sortCharsBtn = document.getElementById('sort-chars-btn');
+        const reduceCount = document.getElementById('reduce-count');
 
         // Edge settings
         const edgeThreshold = document.getElementById('edge-threshold');
@@ -934,6 +1028,8 @@
         // Dithering settings
         const ditherCharSet = document.getElementById('dither-char-set');
         const ditherChars = document.getElementById('dither-chars');
+        const sortDitherCharsBtn = document.getElementById('sort-dither-chars-btn');
+        const ditherReduceCount = document.getElementById('dither-reduce-count');
         const ditherStrength = document.getElementById('dither-strength');
         const ditherStrengthValue = document.getElementById('dither-strength-value');
 
@@ -1066,6 +1162,7 @@
             updateMonoColors();
             initColorModeVisibility();
             initSliderValues();
+            loadSavedChars();
 
             // Listen for system theme changes
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
@@ -1122,6 +1219,22 @@
             ditherStrengthValue.textContent = ditherStrength.value;
             brightnessBlendValue.textContent = brightnessBlend.value;
             colorSaturationValue.textContent = colorSaturation.value;
+        }
+
+        // Character set persistence
+        function saveCustomChars() {
+            localStorage.setItem('ascii-custom-chars', customChars.value);
+        }
+
+        function saveDitherChars() {
+            localStorage.setItem('ascii-dither-chars', ditherChars.value);
+        }
+
+        function loadSavedChars() {
+            const savedCustom = localStorage.getItem('ascii-custom-chars');
+            const savedDither = localStorage.getItem('ascii-dither-chars');
+            if (savedCustom) customChars.value = savedCustom;
+            if (savedDither) ditherChars.value = savedDither;
         }
 
         function setupEventListeners() {
@@ -1188,7 +1301,16 @@
                 customChars.value = CHAR_SETS[charSet.value] || CHAR_SETS.standard;
                 if (currentImage) convertToAscii();
             });
-            customChars.addEventListener('input', () => { if (currentImage) convertToAscii(); });
+            customChars.addEventListener('input', () => {
+                saveCustomChars();
+                if (currentImage) convertToAscii();
+            });
+            sortCharsBtn.addEventListener('click', () => {
+                const count = parseInt(reduceCount.value) || 0;
+                customChars.value = sortAndOptimizeChars(customChars.value, count, fontFamily.value);
+                saveCustomChars();
+                if (currentImage) convertToAscii();
+            });
 
             // Edge settings
             edgeThreshold.addEventListener('input', () => {
@@ -1201,7 +1323,16 @@
                 ditherChars.value = CHAR_SETS[ditherCharSet.value] || CHAR_SETS.standard;
                 if (currentImage) convertToAscii();
             });
-            ditherChars.addEventListener('input', () => { if (currentImage) convertToAscii(); });
+            ditherChars.addEventListener('input', () => {
+                saveDitherChars();
+                if (currentImage) convertToAscii();
+            });
+            sortDitherCharsBtn.addEventListener('click', () => {
+                const count = parseInt(ditherReduceCount.value) || 0;
+                ditherChars.value = sortAndOptimizeChars(ditherChars.value, count, fontFamily.value);
+                saveDitherChars();
+                if (currentImage) convertToAscii();
+            });
             ditherStrength.addEventListener('input', () => {
                 ditherStrengthValue.textContent = ditherStrength.value;
                 if (currentImage) convertToAscii();
