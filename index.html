@@ -430,25 +430,26 @@
             transform: translateY(0);
         }
 
-        /* Loading */
-        .loading {
+        /* Loading - subtle inline spinner */
+        .loading-inline {
             display: none;
-            text-align: center;
-            padding: 40px;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
         }
 
-        .loading.show {
-            display: block;
+        .loading-inline.show {
+            display: flex;
         }
 
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid var(--border-color);
+        .spinner-small {
+            width: 14px;
+            height: 14px;
+            border: 2px solid var(--border-color);
             border-top-color: var(--accent-color);
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            margin: 0 auto 12px;
         }
 
         @keyframes spin {
@@ -529,7 +530,87 @@
                 </div>
 
                 <div class="control-section">
-                    <h3>Conversion Settings</h3>
+                    <h3>Algorithm</h3>
+
+                    <div class="setting-row">
+                        <label for="algorithm">Method</label>
+                        <select id="algorithm">
+                            <option value="brightness">Brightness Mapping</option>
+                            <option value="edge">Edge Detection</option>
+                            <option value="dithering">Floyd-Steinberg Dithering</option>
+                            <option value="pattern">Block Pattern Matching</option>
+                        </select>
+                    </div>
+
+                    <div class="algo-settings" id="algo-settings">
+                        <!-- Brightness Mapping Settings -->
+                        <div class="algo-settings-panel active" id="settings-brightness">
+                            <div class="setting-row">
+                                <label for="char-set">Character Set</label>
+                                <select id="char-set">
+                                    <option value="standard">Standard</option>
+                                    <option value="detailed">Detailed</option>
+                                    <option value="blocks">Blocks</option>
+                                    <option value="simple">Simple</option>
+                                </select>
+                            </div>
+                            <div class="setting-row">
+                                <label for="custom-chars">Characters (dark to light)</label>
+                                <input type="text" id="custom-chars" value="@%#+=*-:. " placeholder="Characters dark to light">
+                            </div>
+                        </div>
+
+                        <!-- Edge Detection Settings -->
+                        <div class="algo-settings-panel" id="settings-edge">
+                            <div class="setting-row">
+                                <label for="edge-threshold">Edge Threshold</label>
+                                <input type="range" id="edge-threshold" min="10" max="200" value="50">
+                                <div class="setting-value"><span id="edge-threshold-value">50</span></div>
+                            </div>
+                        </div>
+
+                        <!-- Dithering Settings -->
+                        <div class="algo-settings-panel" id="settings-dithering">
+                            <div class="setting-row">
+                                <label for="dither-char-set">Character Set</label>
+                                <select id="dither-char-set">
+                                    <option value="standard">Standard</option>
+                                    <option value="detailed">Detailed</option>
+                                    <option value="blocks">Blocks</option>
+                                    <option value="simple">Simple</option>
+                                </select>
+                            </div>
+                            <div class="setting-row">
+                                <label for="dither-chars">Characters (dark to light)</label>
+                                <input type="text" id="dither-chars" value="@%#*+=-:. " placeholder="Characters dark to light">
+                            </div>
+                            <div class="setting-row">
+                                <label for="dither-strength">Error Diffusion Strength</label>
+                                <input type="range" id="dither-strength" min="0" max="100" value="100">
+                                <div class="setting-value"><span id="dither-strength-value">100</span>%</div>
+                            </div>
+                        </div>
+
+                        <!-- Pattern Matching Settings -->
+                        <div class="algo-settings-panel" id="settings-pattern">
+                            <div class="setting-row">
+                                <label for="pattern-block-size">Block Size</label>
+                                <select id="pattern-block-size">
+                                    <option value="2">2x2</option>
+                                    <option value="3" selected>3x3</option>
+                                    <option value="4">4x4</option>
+                                </select>
+                            </div>
+                            <div class="setting-row">
+                                <label for="pattern-chars">Character Pool</label>
+                                <input type="text" id="pattern-chars" value="@#$%&8BMW*oahkbdpqwmZO0QCJYXzcvunxrjft/\|()1{}[]?-_+~<>i!lI;:,. " placeholder="Characters to use">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <h3>Output Settings</h3>
 
                     <div class="setting-row">
                         <label for="chars-per-row">Characters per row</label>
@@ -538,13 +619,10 @@
                     </div>
 
                     <div class="setting-row">
-                        <label for="algorithm">Algorithm</label>
-                        <select id="algorithm">
-                            <option value="brightness">Brightness Mapping</option>
-                            <option value="edge">Edge Detection</option>
-                            <option value="dithering">Floyd-Steinberg Dithering</option>
-                            <option value="pattern">Block Pattern Matching</option>
-                        </select>
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="invert-brightness">
+                            <label for="invert-brightness" style="margin: 0;">Invert brightness</label>
+                        </div>
                     </div>
 
                     <div class="setting-row">
@@ -572,100 +650,6 @@
                         <input type="range" id="color-saturation" min="0" max="200" value="100">
                         <div class="setting-value"><span id="color-saturation-value">100</span>%</div>
                     </div>
-
-                    <div class="algo-settings" id="algo-settings">
-                        <!-- Brightness Mapping Settings -->
-                        <div class="algo-settings-panel active" id="settings-brightness">
-                            <h4>Brightness Settings</h4>
-                            <div class="setting-row">
-                                <label for="char-set">Character Set</label>
-                                <select id="char-set">
-                                    <option value="standard">Standard</option>
-                                    <option value="detailed">Detailed</option>
-                                    <option value="blocks">Blocks</option>
-                                    <option value="simple">Simple</option>
-                                </select>
-                            </div>
-                            <div class="setting-row">
-                                <label for="custom-chars">Characters (dark to light)</label>
-                                <input type="text" id="custom-chars" value="@%#+=*-:. " placeholder="Characters dark to light">
-                            </div>
-                            <div class="setting-row">
-                                <div class="checkbox-row">
-                                    <input type="checkbox" id="invert-chars">
-                                    <label for="invert-chars" style="margin: 0;">Invert brightness</label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Edge Detection Settings -->
-                        <div class="algo-settings-panel" id="settings-edge">
-                            <h4>Edge Detection Settings</h4>
-                            <div class="setting-row">
-                                <label for="edge-threshold">Edge Threshold</label>
-                                <input type="range" id="edge-threshold" min="10" max="200" value="50">
-                                <div class="setting-value"><span id="edge-threshold-value">50</span></div>
-                            </div>
-                            <div class="setting-row">
-                                <div class="checkbox-row">
-                                    <input type="checkbox" id="edge-invert">
-                                    <label for="edge-invert" style="margin: 0;">Invert (light edges)</label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Dithering Settings -->
-                        <div class="algo-settings-panel" id="settings-dithering">
-                            <h4>Dithering Settings</h4>
-                            <div class="setting-row">
-                                <label for="dither-char-set">Character Set</label>
-                                <select id="dither-char-set">
-                                    <option value="standard">Standard</option>
-                                    <option value="detailed">Detailed</option>
-                                    <option value="blocks">Blocks</option>
-                                    <option value="simple">Simple</option>
-                                </select>
-                            </div>
-                            <div class="setting-row">
-                                <label for="dither-chars">Characters (dark to light)</label>
-                                <input type="text" id="dither-chars" value="@%#*+=-:. " placeholder="Characters dark to light">
-                            </div>
-                            <div class="setting-row">
-                                <label for="dither-strength">Error Diffusion Strength</label>
-                                <input type="range" id="dither-strength" min="0" max="100" value="100">
-                                <div class="setting-value"><span id="dither-strength-value">100</span>%</div>
-                            </div>
-                            <div class="setting-row">
-                                <div class="checkbox-row">
-                                    <input type="checkbox" id="dither-invert">
-                                    <label for="dither-invert" style="margin: 0;">Invert brightness</label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Pattern Matching Settings -->
-                        <div class="algo-settings-panel" id="settings-pattern">
-                            <h4>Pattern Matching Settings</h4>
-                            <div class="setting-row">
-                                <label for="pattern-block-size">Block Size</label>
-                                <select id="pattern-block-size">
-                                    <option value="2">2x2</option>
-                                    <option value="3" selected>3x3</option>
-                                    <option value="4">4x4</option>
-                                </select>
-                            </div>
-                            <div class="setting-row">
-                                <label for="pattern-chars">Character Pool</label>
-                                <input type="text" id="pattern-chars" value="@#$%&8BMW*oahkbdpqwmZO0QCJYXzcvunxrjft/\|()1{}[]?-_+~<>i!lI;:,. " placeholder="Characters to use">
-                            </div>
-                            <div class="setting-row">
-                                <div class="checkbox-row">
-                                    <input type="checkbox" id="pattern-invert">
-                                    <label for="pattern-invert" style="margin: 0;">Invert brightness</label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 <div class="control-section">
@@ -684,14 +668,16 @@
             <main class="output-area">
                 <div class="output-header">
                     <h2>ASCII Output</h2>
-                    <span class="output-info" id="output-info"></span>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div class="loading-inline" id="loading">
+                            <div class="spinner-small"></div>
+                            <span>Converting...</span>
+                        </div>
+                        <span class="output-info" id="output-info"></span>
+                    </div>
                 </div>
 
                 <div class="ascii-container">
-                    <div class="loading" id="loading">
-                        <div class="spinner"></div>
-                        <div>Converting...</div>
-                    </div>
                     <div class="placeholder-message" id="placeholder">
                         <div class="icon">🖼️</div>
                         <div>Upload an image or load the default to begin</div>
@@ -761,35 +747,30 @@
         // Brightness settings
         const charSet = document.getElementById('char-set');
         const customChars = document.getElementById('custom-chars');
-        const invertChars = document.getElementById('invert-chars');
 
         // Edge settings
         const edgeThreshold = document.getElementById('edge-threshold');
         const edgeThresholdValue = document.getElementById('edge-threshold-value');
-        const edgeInvert = document.getElementById('edge-invert');
 
         // Dithering settings
         const ditherCharSet = document.getElementById('dither-char-set');
         const ditherChars = document.getElementById('dither-chars');
         const ditherStrength = document.getElementById('dither-strength');
         const ditherStrengthValue = document.getElementById('dither-strength-value');
-        const ditherInvert = document.getElementById('dither-invert');
 
         // Pattern settings
         const patternBlockSize = document.getElementById('pattern-block-size');
         const patternChars = document.getElementById('pattern-chars');
-        const patternInvert = document.getElementById('pattern-invert');
 
-        // Color output settings (global)
+        // Output settings (global)
+        const invertBrightness = document.getElementById('invert-brightness');
+        const contrastAmount = document.getElementById('contrast-amount');
+        const contrastAmountValue = document.getElementById('contrast-amount-value');
+        const contrastHistogram = document.getElementById('contrast-histogram');
         const coloredOutput = document.getElementById('colored-output');
         const saturationRow = document.getElementById('saturation-row');
         const colorSaturation = document.getElementById('color-saturation');
         const colorSaturationValue = document.getElementById('color-saturation-value');
-
-        // Contrast settings (global pre-processing)
-        const contrastAmount = document.getElementById('contrast-amount');
-        const contrastAmountValue = document.getElementById('contrast-amount-value');
-        const contrastHistogram = document.getElementById('contrast-histogram');
 
         // Font detection
         const CANDIDATE_FONTS = [
@@ -882,11 +863,7 @@
 
         function updateInvertDefaults() {
             const shouldInvert = isDarkMode();
-            // Update all invert checkboxes to match the theme
-            invertChars.checked = shouldInvert;
-            edgeInvert.checked = shouldInvert;
-            ditherInvert.checked = shouldInvert;
-            patternInvert.checked = shouldInvert;
+            invertBrightness.checked = shouldInvert;
         }
 
         // Initialize
@@ -976,14 +953,12 @@
                 if (currentImage) convertToAscii();
             });
             customChars.addEventListener('input', () => { if (currentImage) convertToAscii(); });
-            invertChars.addEventListener('change', () => { if (currentImage) convertToAscii(); });
 
             // Edge settings
             edgeThreshold.addEventListener('input', () => {
                 edgeThresholdValue.textContent = edgeThreshold.value;
                 if (currentImage) convertToAscii();
             });
-            edgeInvert.addEventListener('change', () => { if (currentImage) convertToAscii(); });
 
             // Dithering settings
             ditherCharSet.addEventListener('change', () => {
@@ -995,14 +970,18 @@
                 ditherStrengthValue.textContent = ditherStrength.value;
                 if (currentImage) convertToAscii();
             });
-            ditherInvert.addEventListener('change', () => { if (currentImage) convertToAscii(); });
 
             // Pattern settings
             patternBlockSize.addEventListener('change', () => { if (currentImage) convertToAscii(); });
             patternChars.addEventListener('input', () => { if (currentImage) convertToAscii(); });
-            patternInvert.addEventListener('change', () => { if (currentImage) convertToAscii(); });
 
-            // Color output settings (global)
+            // Output settings (global)
+            invertBrightness.addEventListener('change', () => { if (currentImage) convertToAscii(); });
+            contrastAmount.addEventListener('input', () => {
+                contrastAmountValue.textContent = contrastAmount.value;
+                if (currentImage) convertToAscii();
+            });
+            contrastHistogram.addEventListener('change', () => { if (currentImage) convertToAscii(); });
             coloredOutput.addEventListener('change', () => {
                 saturationRow.style.display = coloredOutput.checked ? 'block' : 'none';
                 if (currentImage) convertToAscii();
@@ -1011,13 +990,6 @@
                 colorSaturationValue.textContent = colorSaturation.value;
                 if (currentImage) convertToAscii();
             });
-
-            // Contrast settings (global)
-            contrastAmount.addEventListener('input', () => {
-                contrastAmountValue.textContent = contrastAmount.value;
-                if (currentImage) convertToAscii();
-            });
-            contrastHistogram.addEventListener('change', () => { if (currentImage) convertToAscii(); });
 
             // Copy buttons
             copyTextBtn.addEventListener('click', copyAsText);
@@ -1268,7 +1240,7 @@
 
             let chars = customChars.value || CHAR_SETS.standard;
 
-            if (invertChars.checked) {
+            if (invertBrightness.checked) {
                 chars = chars.split('').reverse().join('');
             }
 
@@ -1301,7 +1273,7 @@
             const { imageData, height } = getScaledImageData(img, width);
             const pixels = imageData.data;
             const threshold = parseInt(edgeThreshold.value);
-            const invert = edgeInvert.checked;
+            const invert = invertBrightness.checked;
 
             // Convert to grayscale array
             const gray = new Float32Array(width * height);
@@ -1369,7 +1341,7 @@
             const { imageData, height } = getScaledImageData(img, width);
             const pixels = imageData.data;
             let chars = ditherChars.value || CHAR_SETS.standard;
-            if (ditherInvert.checked) {
+            if (invertBrightness.checked) {
                 chars = chars.split('').reverse().join('');
             }
             const strength = parseInt(ditherStrength.value) / 100;
@@ -1422,7 +1394,7 @@
             const targetWidth = parseInt(charsPerRow.value);
             const blockSize = parseInt(patternBlockSize.value);
             const chars = patternChars.value || '@#$%&*oahkbdpqwm. ';
-            const invert = patternInvert.checked;
+            const invert = invertBrightness.checked;
 
             // Pre-compute character patterns
             const charPatterns = computeCharacterPatterns(chars, blockSize);
