@@ -1605,17 +1605,21 @@
 
         function copyAsHtml() {
             const isColored = coloredOutput.checked && lastColoredHtml;
+            const bgColor = isDarkMode() ? '#0d0d0d' : '#ffffff';
+            const textColor = isDarkMode() ? '#f0f0f0' : '#000000';
             let html;
 
+            const baseStyles = `font-family: ${fontFamily.value}; font-size: ${fontSize.value}px; line-height: 1; letter-spacing: 0; white-space: pre; background-color: ${bgColor}; padding: 16px; margin: 0; display: inline-block;`;
+
             if (isColored) {
-                html = `<pre style="font-family: ${fontFamily.value}; font-size: ${fontSize.value}px; line-height: 1; letter-spacing: 0; background: #000;">${lastColoredHtml}</pre>`;
+                html = `<pre style="${baseStyles}">${lastColoredHtml}</pre>`;
             } else {
                 const text = asciiOutput.textContent;
                 if (!text) {
                     showToast('Nothing to copy');
                     return;
                 }
-                html = `<pre style="font-family: ${fontFamily.value}; font-size: ${fontSize.value}px; line-height: 1; letter-spacing: 0;">${escapeHtml(text)}</pre>`;
+                html = `<pre style="${baseStyles} color: ${textColor};">${escapeHtml(text)}</pre>`;
             }
 
             navigator.clipboard.write([
