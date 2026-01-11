@@ -1160,6 +1160,7 @@
             initColorModeVisibility();
             initSliderValues();
             loadSavedChars();
+            charRatio.disabled = autoRatio.checked;
 
             // Listen for system theme changes
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
