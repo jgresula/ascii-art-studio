@@ -545,9 +545,109 @@ function processMonoBrightnessOpacity(ascii, pixels, width, height, settings) {
 // Cached palette
 let cachedPalette = null;
 
+// Compute colors for canvas mode (no HTML building)
+function computeColorsForCanvas(pixels, width, height, brightnessData, settings, palette) {
+    const pixelCount = width * height;
+    const useWasm = wasm && pixelCount <= 1024 * 1024;
+
+    // Ensure buffer pool is ready
+    ensureBufferPool(pixelCount);
+
+    // Use WASM for palette mapping and saturation if available
+    let processedPixels = pixels;
+
+    if (useWasm && (palette || settings.saturation !== 1)) {
+        wasmBuffer.set(pixels.subarray(0, pixelCount * 4));
+
+        if (palette) {
+            const paletteOffset = pixelCount * 4;
+            for (let i = 0; i < palette.length; i++) {
+                wasmBuffer[paletteOffset + i * 3] = palette[i][0];
+                wasmBuffer[paletteOffset + i * 3 + 1] = palette[i][1];
+                wasmBuffer[paletteOffset + i * 3 + 2] = palette[i][2];
+            }
+            wasm.nearest_color_batch(pixelCount, paletteOffset, palette.length);
+        }
+
+        if (settings.saturation !== 1) {
+            wasm.apply_saturation(pixelCount, settings.saturation);
+        }
+
+        poolProcessedPixels.set(wasmBuffer.subarray(0, pixelCount * 4));
+        processedPixels = poolProcessedPixels;
+    }
+
+    const colorR = poolColorR;
+    const colorG = poolColorG;
+    const colorB = poolColorB;
+    const opacities = poolOpacities;
+
+    const doBlend = settings.blend !== 0.5 && brightnessData;
+    const doBrightnessOpacity = settings.brightnessOpacity && brightnessData;
+    const baseOpacity = settings.baseOpacity;
+    const invert = settings.invert;
+    const adjustedBlend = (settings.blend - 0.5) * 2;
+
+    for (let idx = 0; idx < pixelCount; idx++) {
+        const i = idx * 4;
+        let r = processedPixels[i];
+        let g = processedPixels[i + 1];
+        let b = processedPixels[i + 2];
+
+        if (!useWasm) {
+            if (palette) {
+                const nearest = nearestColor(r, g, b, palette);
+                r = nearest[0];
+                g = nearest[1];
+                b = nearest[2];
+            }
+
+            if (settings.saturation !== 1) {
+                const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                r = Math.round(gray + settings.saturation * (r - gray));
+                g = Math.round(gray + settings.saturation * (g - gray));
+                b = Math.round(gray + settings.saturation * (b - gray));
+            }
+        }
+
+        if (doBlend) {
+            const charBrightness = brightnessData[idx];
+            let factor;
+            if (adjustedBlend >= 0) {
+                factor = 1 - adjustedBlend * (1 - charBrightness);
+            } else {
+                factor = 1 + (-adjustedBlend) * (1 - charBrightness);
+            }
+            r = Math.round(r * factor);
+            g = Math.round(g * factor);
+            b = Math.round(b * factor);
+        }
+
+        colorR[idx] = r < 0 ? 0 : (r > 255 ? 255 : r);
+        colorG[idx] = g < 0 ? 0 : (g > 255 ? 255 : g);
+        colorB[idx] = b < 0 ? 0 : (b > 255 ? 255 : b);
+
+        let opacity = baseOpacity;
+        if (doBrightnessOpacity) {
+            let charBrightness = brightnessData[idx];
+            if (invert) charBrightness = 1 - charBrightness;
+            opacity *= (1 - charBrightness);
+        }
+        opacities[idx] = opacity;
+    }
+
+    // Return copies of the color data for transfer
+    return {
+        colorR: new Uint8Array(colorR.subarray(0, pixelCount)),
+        colorG: new Uint8Array(colorG.subarray(0, pixelCount)),
+        colorB: new Uint8Array(colorB.subarray(0, pixelCount)),
+        opacities: new Float32Array(opacities.subarray(0, pixelCount))
+    };
+}
+
 // Message handler
 self.onmessage = function(e) {
-    const { type, pixels, width, height, settings, ansi256Palette } = e.data;
+    const { type, pixels, width, height, settings, ansi256Palette, canvasMode } = e.data;
 
     if (type === 'convert') {
         const startTime = performance.now();
@@ -556,11 +656,12 @@ self.onmessage = function(e) {
         const { ascii, brightnessValues } = brightnessMapping(pixels, width, height, settings);
 
         let html = null;
+        let colorData = null;
         const colorMode = settings.colorMode;
 
+        // Determine palette
+        let palette = null;
         if (colorMode !== 'monochrome') {
-            // Determine palette
-            let palette = null;
             if (colorMode === 'ansi256') {
                 palette = ansi256Palette;
             } else if (colorMode.startsWith('adaptive')) {
@@ -574,22 +675,59 @@ self.onmessage = function(e) {
                 }
                 palette = cachedPalette.colors;
             }
+        }
 
-            html = applyColorToAscii(ascii, pixels, width, height, brightnessValues, settings, palette);
-        } else if (settings.brightnessOpacity) {
-            html = processMonoBrightnessOpacity(ascii, pixels, width, height, settings);
+        if (canvasMode) {
+            // Canvas mode: return raw color data instead of HTML
+            if (colorMode !== 'monochrome') {
+                colorData = computeColorsForCanvas(pixels, width, height, brightnessValues, settings, palette);
+            } else if (settings.brightnessOpacity) {
+                // Monochrome with brightness opacity - compute opacities only
+                ensureBufferPool(width * height);
+                const opacities = poolOpacities;
+                for (let i = 0; i < width * height; i++) {
+                    let brightness = brightnessValues[i];
+                    if (settings.invert) brightness = 1 - brightness;
+                    opacities[i] = settings.baseOpacity * (1 - brightness);
+                }
+                colorData = {
+                    colorR: null,
+                    colorG: null,
+                    colorB: null,
+                    opacities: new Float32Array(opacities.subarray(0, width * height))
+                };
+            }
+        } else {
+            // HTML mode: build HTML string
+            if (colorMode !== 'monochrome') {
+                html = applyColorToAscii(ascii, pixels, width, height, brightnessValues, settings, palette);
+            } else if (settings.brightnessOpacity) {
+                html = processMonoBrightnessOpacity(ascii, pixels, width, height, settings);
+            }
         }
 
         const duration = performance.now() - startTime;
 
-        self.postMessage({
+        // Prepare message with transferable arrays for canvas mode
+        const message = {
             type: 'result',
             ascii,
             html,
+            colorData,
             width,
             height,
             duration
-        });
+        };
+
+        if (canvasMode && colorData) {
+            const transfers = [colorData.opacities.buffer];
+            if (colorData.colorR) {
+                transfers.push(colorData.colorR.buffer, colorData.colorG.buffer, colorData.colorB.buffer);
+            }
+            self.postMessage(message, transfers);
+        } else {
+            self.postMessage(message);
+        }
     } else if (type === 'clearCache') {
         cachedPalette = null;
         colorCache.clear();
