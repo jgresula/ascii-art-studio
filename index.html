@@ -1483,7 +1483,7 @@
         // Debounced conversion for smooth slider dragging
         const debouncedConvert = debounce(() => {
             if (currentImage) convertToAscii();
-        }, 30);
+        }, 50);
 
         function setupEventListeners() {
             // Drop zone
@@ -1972,9 +1972,7 @@
             if (!currentImage) return;
 
             showLoading(true);
-            asciiOutput.textContent = '';
-            asciiOutput.innerHTML = '';
-            lastColoredHtml = '';
+            // Don't clear output here - update in place to prevent flicker
 
             setTimeout(() => {
                 let result;
@@ -2021,7 +2019,9 @@
                     // Monochrome with custom colors
                     asciiOutput.style.color = monoFg.value;
                     asciiContainer.style.backgroundColor = monoBg.value;
+                    asciiOutput.innerHTML = ''; // Clear any HTML spans first
                     asciiOutput.textContent = result.ascii;
+                    lastColoredHtml = '';
                 }
 
                 outputInfo.textContent = `${result.width} × ${result.height} chars`;
