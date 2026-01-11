@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Image to ASCII Converter</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
     <style>
         /* Light theme (default) */
         :root, [data-theme="light"], [data-theme="auto"] {
@@ -241,6 +242,16 @@
 
         .btn-primary:hover {
             background: var(--accent-hover);
+        }
+
+        .btn-primary.recording {
+            background: #dc3545;
+            animation: pulse-recording 1s infinite;
+        }
+
+        @keyframes pulse-recording {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
         }
 
         .btn-secondary {
@@ -515,15 +526,16 @@
         <div class="main-content">
             <aside class="controls">
                 <div class="control-section" data-section="image-source">
-                    <h3>Image Source</h3>
+                    <h3>Media Source</h3>
                     <div class="section-content">
                         <div class="drop-zone" id="drop-zone">
                             <div class="drop-zone-icon">📁</div>
                             <div class="drop-zone-text">
                                 <strong>Click to upload</strong> or drag & drop
+                                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">Images or videos</div>
                             </div>
                         </div>
-                        <input type="file" id="file-input" accept="image/*">
+                        <input type="file" id="file-input" accept="image/*,video/*">
 
                         <div class="url-input-group">
                             <input type="text" id="url-input" placeholder="Or paste image URL..." autocomplete="off" spellcheck="false">
@@ -533,7 +545,23 @@
                         <div class="preview-section">
                             <h4>Preview</h4>
                             <img id="image-preview" alt="Preview">
-                            <div id="no-preview" style="font-size: 0.85rem; color: var(--text-secondary);">No image loaded</div>
+                            <video id="video-preview" muted playsinline style="display: none; max-width: 100%; border-radius: 4px;"></video>
+                            <div id="no-preview" style="font-size: 0.85rem; color: var(--text-secondary);">No media loaded</div>
+                        </div>
+
+                        <div class="video-controls" id="video-controls" style="display: none;">
+                            <div class="copy-buttons" style="margin-bottom: 8px;">
+                                <button class="btn btn-secondary" id="video-play-btn">▶ Play</button>
+                                <button class="btn btn-secondary" id="video-pause-btn" style="display: none;">⏸ Pause</button>
+                                <button class="btn btn-secondary" id="video-stop-btn">⏹ Stop</button>
+                            </div>
+                            <div class="setting-row" style="margin-bottom: 8px;">
+                                <input type="range" id="video-seek" min="0" max="100" value="0" style="flex: 1;">
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary);">
+                                <span id="video-time">0:00 / 0:00</span>
+                                <span id="video-fps">FPS: --</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -761,6 +789,10 @@
                         <div class="copy-buttons" style="margin-top: 8px;">
                             <button class="btn btn-secondary" id="copy-markdown-btn">Copy Markdown</button>
                             <button class="btn btn-primary" id="download-png-btn">Download PNG</button>
+                        </div>
+                        <div class="copy-buttons" id="gif-export-controls" style="margin-top: 8px; display: none;">
+                            <button class="btn btn-primary" id="download-gif-btn">Record GIF</button>
+                            <span id="gif-status" style="font-size: 12px; color: var(--text-muted);"></span>
                         </div>
                     </div>
                 </div>
@@ -1174,12 +1206,37 @@
         let cachedPalette = null;
         let lastColoredHtml = '';
 
+        // Video state
+        let currentVideo = null;
+        let isVideoMode = false;
+        let isVideoPlaying = false;
+        let videoAnimationId = null;
+        let lastFrameTime = 0;
+        let frameCount = 0;
+        let fpsUpdateTime = 0;
+        let currentFps = 0;
+
+        // GIF recording state
+        let isRecordingGif = false;
+        let gifFrames = [];
+        let gifStartTime = 0;
+        const GIF_MAX_DURATION = 10000; // 10 seconds max
+        const GIF_FRAME_INTERVAL = 100; // 10 FPS for GIF
+
         // DOM Elements
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         const urlInput = document.getElementById('url-input');
         const loadUrlBtn = document.getElementById('load-url-btn');
         const imagePreview = document.getElementById('image-preview');
+        const videoPreview = document.getElementById('video-preview');
+        const videoControls = document.getElementById('video-controls');
+        const videoPlayBtn = document.getElementById('video-play-btn');
+        const videoPauseBtn = document.getElementById('video-pause-btn');
+        const videoStopBtn = document.getElementById('video-stop-btn');
+        const videoSeek = document.getElementById('video-seek');
+        const videoTime = document.getElementById('video-time');
+        const videoFps = document.getElementById('video-fps');
         const noPreview = document.getElementById('no-preview');
         const charsPerRow = document.getElementById('chars-per-row');
         const charsValue = document.getElementById('chars-value');
@@ -1192,6 +1249,9 @@
         const copyHtmlBtn = document.getElementById('copy-html-btn');
         const copyMarkdownBtn = document.getElementById('copy-markdown-btn');
         const downloadPngBtn = document.getElementById('download-png-btn');
+        const gifExportControls = document.getElementById('gif-export-controls');
+        const downloadGifBtn = document.getElementById('download-gif-btn');
+        const gifStatus = document.getElementById('gif-status');
         const settingsPreset = document.getElementById('settings-preset');
         const saveSettingsPresetBtn = document.getElementById('save-settings-preset-btn');
         const deleteSettingsPresetBtn = document.getElementById('delete-settings-preset-btn');
@@ -1548,6 +1608,38 @@
             loadUrlBtn.addEventListener('click', loadFromUrl);
             urlInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') loadFromUrl();
+            });
+
+            // Video controls
+            videoPlayBtn.addEventListener('click', playVideo);
+            videoPauseBtn.addEventListener('click', pauseVideo);
+            videoStopBtn.addEventListener('click', () => {
+                stopVideo();
+                // Keep video mode but stop playback and seek to start
+                if (videoPreview.src) {
+                    isVideoMode = true;
+                    currentVideo = videoPreview;
+                    videoControls.style.display = 'block';
+                    videoPreview.style.display = 'block';
+                    gifExportControls.style.display = 'flex';
+                    videoPreview.currentTime = 0;
+                    updateVideoTime();
+                }
+            });
+            videoSeek.addEventListener('input', () => {
+                seekVideo(parseInt(videoSeek.value));
+            });
+            videoPreview.addEventListener('ended', () => {
+                pauseVideo();
+                videoSeek.value = videoSeek.max;
+                updateVideoTime();
+            });
+            downloadGifBtn.addEventListener('click', () => {
+                if (isRecordingGif) {
+                    stopGifRecording(true);
+                } else {
+                    startGifRecording();
+                }
             });
 
             // Display settings
@@ -1941,25 +2033,353 @@
             dropZone.classList.remove('drag-over');
 
             const files = e.dataTransfer.files;
-            if (files.length > 0 && files[0].type.startsWith('image/')) {
-                loadImageFile(files[0]);
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.type.startsWith('video/')) {
+                    loadVideoFile(file);
+                } else if (file.type.startsWith('image/')) {
+                    loadImageFile(file);
+                }
             }
         }
 
         function handleFileSelect(e) {
             const files = e.target.files;
             if (files.length > 0) {
-                loadImageFile(files[0]);
+                const file = files[0];
+                if (file.type.startsWith('video/')) {
+                    loadVideoFile(file);
+                } else {
+                    loadImageFile(file);
+                }
             }
         }
 
         // Image loading
         function loadImageFile(file) {
+            stopVideo();
             const reader = new FileReader();
             reader.onload = (e) => {
                 loadImage(e.target.result);
             };
             reader.readAsDataURL(file);
+        }
+
+        // Video loading
+        function loadVideoFile(file) {
+            stopVideo();
+            const url = URL.createObjectURL(file);
+            loadVideo(url);
+        }
+
+        function loadVideo(src) {
+            showLoading(true);
+            placeholder.style.display = 'none';
+
+            videoPreview.src = src;
+            videoPreview.load();
+
+            videoPreview.onloadedmetadata = () => {
+                isVideoMode = true;
+                currentVideo = videoPreview;
+                currentImage = null;
+
+                // Show video preview, hide image preview
+                imagePreview.style.display = 'none';
+                videoPreview.style.display = 'block';
+                noPreview.style.display = 'none';
+                videoControls.style.display = 'block';
+                gifExportControls.style.display = 'flex';
+
+                // Update seek bar max
+                videoSeek.max = Math.floor(videoPreview.duration);
+                updateVideoTime();
+
+                // Show first frame
+                videoPreview.currentTime = 0;
+            };
+
+            videoPreview.onseeked = () => {
+                if (!isVideoPlaying) {
+                    convertVideoFrame();
+                }
+            };
+
+            videoPreview.oncanplay = () => {
+                showLoading(false);
+                if (!isVideoPlaying) {
+                    convertVideoFrame();
+                }
+            };
+
+            videoPreview.onerror = () => {
+                showLoading(false);
+                showToast('Failed to load video. Try a different file.');
+                isVideoMode = false;
+                placeholder.style.display = 'block';
+            };
+        }
+
+        function convertVideoFrame() {
+            if (!currentVideo) return;
+
+            // Create a canvas to extract frame
+            const canvas = document.createElement('canvas');
+            canvas.width = currentVideo.videoWidth;
+            canvas.height = currentVideo.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(currentVideo, 0, 0);
+
+            // Create image from canvas
+            const img = new Image();
+            img.src = canvas.toDataURL();
+            img.onload = () => {
+                currentImage = img;
+                cachedPalette = null;
+                convertToAscii();
+            };
+        }
+
+        function videoPlaybackLoop(timestamp) {
+            if (!isVideoPlaying) return;
+
+            // Calculate FPS
+            frameCount++;
+            if (timestamp - fpsUpdateTime >= 1000) {
+                currentFps = frameCount;
+                frameCount = 0;
+                fpsUpdateTime = timestamp;
+                videoFps.textContent = `FPS: ${currentFps}`;
+            }
+
+            // Convert current frame
+            convertVideoFrame();
+
+            // Update seek bar and time
+            videoSeek.value = Math.floor(currentVideo.currentTime);
+            updateVideoTime();
+
+            // Continue loop
+            videoAnimationId = requestAnimationFrame(videoPlaybackLoop);
+        }
+
+        function playVideo() {
+            if (!currentVideo) return;
+            currentVideo.play();
+            isVideoPlaying = true;
+            videoPlayBtn.style.display = 'none';
+            videoPauseBtn.style.display = '';
+            frameCount = 0;
+            fpsUpdateTime = performance.now();
+            videoAnimationId = requestAnimationFrame(videoPlaybackLoop);
+        }
+
+        function pauseVideo() {
+            if (!currentVideo) return;
+            currentVideo.pause();
+            isVideoPlaying = false;
+            videoPlayBtn.style.display = '';
+            videoPauseBtn.style.display = 'none';
+            if (videoAnimationId) {
+                cancelAnimationFrame(videoAnimationId);
+                videoAnimationId = null;
+            }
+        }
+
+        function stopVideo() {
+            if (currentVideo) {
+                currentVideo.pause();
+                currentVideo.currentTime = 0;
+            }
+            isVideoPlaying = false;
+            isVideoMode = false;
+            videoPlayBtn.style.display = '';
+            videoPauseBtn.style.display = 'none';
+            if (videoAnimationId) {
+                cancelAnimationFrame(videoAnimationId);
+                videoAnimationId = null;
+            }
+            // Stop any GIF recording
+            if (isRecordingGif) {
+                stopGifRecording(false);
+            }
+            videoFps.textContent = 'FPS: --';
+            videoControls.style.display = 'none';
+            videoPreview.style.display = 'none';
+            gifExportControls.style.display = 'none';
+        }
+
+        function seekVideo(time) {
+            if (!currentVideo) return;
+            currentVideo.currentTime = time;
+            updateVideoTime();
+        }
+
+        function updateVideoTime() {
+            if (!currentVideo) return;
+            const current = formatTime(currentVideo.currentTime);
+            const duration = formatTime(currentVideo.duration);
+            videoTime.textContent = `${current} / ${duration}`;
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // GIF Recording
+        function startGifRecording() {
+            if (!isVideoMode || !currentVideo) {
+                showToast('Load a video first');
+                return;
+            }
+
+            isRecordingGif = true;
+            gifFrames = [];
+            gifStartTime = performance.now();
+
+            downloadGifBtn.textContent = '⏹ Stop Recording';
+            downloadGifBtn.classList.add('recording');
+            gifStatus.textContent = 'Recording...';
+
+            // Start video playback if not playing
+            if (!isVideoPlaying) {
+                playVideo();
+            }
+
+            // Start capturing frames
+            captureGifFrameLoop();
+        }
+
+        let lastGifFrameTime = 0;
+        function captureGifFrameLoop() {
+            if (!isRecordingGif) return;
+
+            const now = performance.now();
+            const elapsed = now - gifStartTime;
+
+            // Check duration limit
+            if (elapsed >= GIF_MAX_DURATION) {
+                stopGifRecording(true);
+                return;
+            }
+
+            // Capture frame at interval
+            if (now - lastGifFrameTime >= GIF_FRAME_INTERVAL) {
+                captureGifFrame();
+                lastGifFrameTime = now;
+                gifStatus.textContent = `Recording... ${(elapsed / 1000).toFixed(1)}s`;
+            }
+
+            requestAnimationFrame(captureGifFrameLoop);
+        }
+
+        function captureGifFrame() {
+            // Capture ASCII output as canvas image
+            const canvas = document.createElement('canvas');
+            const rect = asciiOutput.getBoundingClientRect();
+            const scale = 1; // Could increase for higher quality
+
+            canvas.width = rect.width * scale;
+            canvas.height = rect.height * scale;
+
+            const ctx = canvas.getContext('2d');
+            ctx.scale(scale, scale);
+
+            // Draw background
+            const bgColor = isDarkMode() ? '#0d0d0d' : '#ffffff';
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Get computed styles
+            const styles = window.getComputedStyle(asciiOutput);
+            const fontSizeVal = parseFloat(styles.fontSize);
+            const lineHeight = parseFloat(styles.lineHeight) || fontSizeVal * 1.2;
+            const fontFamilyVal = styles.fontFamily;
+
+            ctx.font = `${fontSizeVal}px ${fontFamilyVal}`;
+            ctx.textBaseline = 'top';
+
+            // Render the ASCII content
+            const isMono = colorMode.value === 'monochrome';
+            if (isMono) {
+                ctx.fillStyle = monoFg.value;
+                const lines = asciiOutput.textContent.split('\n');
+                lines.forEach((line, i) => {
+                    ctx.fillText(line, 0, i * lineHeight);
+                });
+            } else {
+                // For colored output, render each span
+                const spans = asciiOutput.querySelectorAll('span');
+                if (spans.length > 0) {
+                    let x = 0, y = 0;
+                    spans.forEach(span => {
+                        const text = span.textContent;
+                        const color = span.style.color || styles.color;
+                        ctx.fillStyle = color;
+
+                        for (const char of text) {
+                            if (char === '\n') {
+                                x = 0;
+                                y += lineHeight;
+                            } else {
+                                ctx.fillText(char, x, y);
+                                x += ctx.measureText(char).width;
+                            }
+                        }
+                    });
+                }
+            }
+
+            gifFrames.push(canvas);
+        }
+
+        function stopGifRecording(encode) {
+            isRecordingGif = false;
+            downloadGifBtn.textContent = 'Record GIF';
+            downloadGifBtn.classList.remove('recording');
+
+            if (!encode || gifFrames.length === 0) {
+                gifStatus.textContent = '';
+                gifFrames = [];
+                return;
+            }
+
+            gifStatus.textContent = `Encoding ${gifFrames.length} frames...`;
+
+            // Encode GIF using gif.js
+            const gif = new GIF({
+                workers: 2,
+                quality: 10,
+                width: gifFrames[0].width,
+                height: gifFrames[0].height,
+                workerScript: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js'
+            });
+
+            gifFrames.forEach(canvas => {
+                gif.addFrame(canvas, { delay: GIF_FRAME_INTERVAL });
+            });
+
+            gif.on('finished', blob => {
+                // Download the GIF
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'ascii-animation.gif';
+                a.click();
+                URL.revokeObjectURL(url);
+
+                gifStatus.textContent = '';
+                gifFrames = [];
+                showToast('GIF downloaded!');
+            });
+
+            gif.on('progress', p => {
+                gifStatus.textContent = `Encoding... ${Math.round(p * 100)}%`;
+            });
+
+            gif.render();
         }
 
         function loadFromUrl() {
@@ -1976,6 +2396,7 @@
         }
 
         function loadImage(src) {
+            stopVideo();
             showLoading(true);
             placeholder.style.display = 'none';
 
@@ -1984,6 +2405,8 @@
 
             img.onload = () => {
                 currentImage = img;
+                currentVideo = null;
+                isVideoMode = false;
                 cachedPalette = null; // Clear palette cache for new image
                 showPreview(src);
                 convertToAscii();
@@ -2003,6 +2426,9 @@
         function showPreview(src) {
             imagePreview.src = src;
             imagePreview.style.display = 'block';
+            videoPreview.style.display = 'none';
+            videoControls.style.display = 'none';
+            gifExportControls.style.display = 'none';
             noPreview.style.display = 'none';
         }
 
