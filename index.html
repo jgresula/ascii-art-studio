@@ -558,8 +558,11 @@
                             <div class="setting-row" style="margin-bottom: 8px;">
                                 <input type="range" id="video-seek" min="0" max="100" value="0" style="flex: 1;">
                             </div>
-                            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: var(--text-secondary);">
                                 <span id="video-time">0:00 / 0:00</span>
+                                <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                                    <input type="checkbox" id="video-loop"> Loop
+                                </label>
                                 <span id="video-fps">FPS: --</span>
                             </div>
                         </div>
@@ -1237,6 +1240,7 @@
         const videoSeek = document.getElementById('video-seek');
         const videoTime = document.getElementById('video-time');
         const videoFps = document.getElementById('video-fps');
+        const videoLoop = document.getElementById('video-loop');
         const noPreview = document.getElementById('no-preview');
         const charsPerRow = document.getElementById('chars-per-row');
         const charsValue = document.getElementById('chars-value');
@@ -1630,9 +1634,21 @@
                 seekVideo(parseInt(videoSeek.value));
             });
             videoPreview.addEventListener('ended', () => {
-                pauseVideo();
-                videoSeek.value = videoSeek.max;
-                updateVideoTime();
+                if (videoLoop.checked) {
+                    // Loop: restart from beginning
+                    currentVideo.currentTime = 0;
+                    videoSeek.value = 0;
+                    updateVideoTime();
+                } else {
+                    pauseVideo();
+                    videoSeek.value = videoSeek.max;
+                    updateVideoTime();
+                }
+            });
+            videoLoop.addEventListener('change', () => {
+                if (currentVideo) {
+                    currentVideo.loop = videoLoop.checked;
+                }
             });
             downloadGifBtn.addEventListener('click', () => {
                 if (isRecordingGif) {
@@ -2367,7 +2383,10 @@
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = 'ascii-animation.gif';
+                a.style.display = 'none';
+                document.body.appendChild(a);
                 a.click();
+                document.body.removeChild(a);
                 URL.revokeObjectURL(url);
 
                 gifStatus.textContent = '';
