@@ -737,6 +737,17 @@
                             <input type="range" id="color-saturation" min="0" max="200" value="100">
                             <div class="setting-value"><span id="color-saturation-value">100</span>%</div>
                         </div>
+
+                        <div class="setting-row">
+                            <label for="global-opacity">Opacity</label>
+                            <input type="range" id="global-opacity" min="5" max="100" value="100">
+                            <div class="setting-value"><span id="global-opacity-value">100</span>%</div>
+                        </div>
+
+                        <div class="setting-row">
+                            <input type="checkbox" id="brightness-opacity">
+                            <label for="brightness-opacity" style="margin: 0;">Brightness as opacity</label>
+                        </div>
                     </div>
                 </div>
 
@@ -837,6 +848,8 @@
             contrast: 100,
             brightnessBlend: 50,
             saturation: 100,
+            opacity: 100,
+            brightnessAsOpacity: false,
             monoFg: '#f0f0f0',
             monoBg: '#0d0d0d'
         };
@@ -931,6 +944,35 @@
                     customChars: '█▓▒░ ',
                     colorMode: 'adaptive16',
                     saturation: 0
+                }
+            },
+            'opacity-color': {
+                name: 'Opacity (Color)',
+                settings: {
+                    ...DEFAULT_SETTINGS,
+                    charSetPreset: 'single',
+                    customChars: '█',
+                    colorMode: 'truecolor',
+                    brightnessAsOpacity: true
+                }
+            },
+            'opacity-grayscale': {
+                name: 'Opacity (Grayscale)',
+                settings: {
+                    ...DEFAULT_SETTINGS,
+                    charSetPreset: 'single',
+                    customChars: '█',
+                    colorMode: 'adaptive16',
+                    saturation: 0,
+                    brightnessAsOpacity: true
+                }
+            },
+            'transparent-overlay': {
+                name: 'Transparent Overlay',
+                settings: {
+                    ...DEFAULT_SETTINGS,
+                    opacity: 60,
+                    colorMode: 'truecolor'
                 }
             }
         };
@@ -1196,6 +1238,9 @@
         const brightnessBlendValue = document.getElementById('brightness-blend-value');
         const colorSaturation = document.getElementById('color-saturation');
         const colorSaturationValue = document.getElementById('color-saturation-value');
+        const globalOpacity = document.getElementById('global-opacity');
+        const globalOpacityValue = document.getElementById('global-opacity-value');
+        const brightnessOpacity = document.getElementById('brightness-opacity');
         const monoSettings = document.querySelector('.mono-settings');
         const monoFg = document.getElementById('mono-fg');
         const monoBg = document.getElementById('mono-bg');
@@ -1375,6 +1420,7 @@
             ditherStrengthValue.textContent = ditherStrength.value;
             brightnessBlendValue.textContent = brightnessBlend.value;
             colorSaturationValue.textContent = colorSaturation.value;
+            globalOpacityValue.textContent = globalOpacity.value;
         }
 
         // Character set preset management
@@ -1596,6 +1642,13 @@
                 colorSaturationValue.textContent = colorSaturation.value;
                 debouncedConvert();
             });
+            globalOpacity.addEventListener('input', () => {
+                globalOpacityValue.textContent = globalOpacity.value;
+                debouncedConvert();
+            });
+            brightnessOpacity.addEventListener('change', () => {
+                if (currentImage) convertToAscii();
+            });
             monoFg.addEventListener('input', debouncedConvert);
             monoBg.addEventListener('input', debouncedConvert);
 
@@ -1648,6 +1701,8 @@
                 contrast: parseInt(contrastAmount.value),
                 brightnessBlend: parseInt(brightnessBlend.value),
                 saturation: parseInt(colorSaturation.value),
+                opacity: parseInt(globalOpacity.value),
+                brightnessAsOpacity: brightnessOpacity.checked,
                 monoFg: monoFg.value,
                 monoBg: monoBg.value
             };
@@ -1720,6 +1775,12 @@
             }
             if (settings.saturation !== undefined) {
                 colorSaturation.value = settings.saturation;
+            }
+            if (settings.opacity !== undefined) {
+                globalOpacity.value = settings.opacity;
+            }
+            if (settings.brightnessAsOpacity !== undefined) {
+                brightnessOpacity.checked = settings.brightnessAsOpacity;
             }
             if (settings.monoFg !== undefined) {
                 monoFg.value = settings.monoFg;
@@ -2052,6 +2113,8 @@
             const pixels = imageData.data;
             const saturation = parseInt(colorSaturation.value) / 100;
             const blend = parseInt(brightnessBlend.value) / 100;
+            const baseOpacity = parseInt(globalOpacity.value) / 100;
+            const useBrightnessOpacity = brightnessOpacity.checked;
 
             // Get or build palette
             let palette = null;
@@ -2121,8 +2184,20 @@
                     g = Math.max(0, Math.min(255, g));
                     b = Math.max(0, Math.min(255, b));
 
+                    // Calculate opacity
+                    let opacity = baseOpacity;
+                    if (useBrightnessOpacity && brightnessData) {
+                        // Dark areas = opaque, light areas = transparent
+                        const charBrightness = brightnessData[y * width + x];
+                        opacity *= (1 - charBrightness);
+                    }
+
                     const escaped = escapeHtml(char);
-                    html += `<span style="color:rgb(${r},${g},${b})">${escaped}</span>`;
+                    if (opacity < 1) {
+                        html += `<span style="color:rgba(${r},${g},${b},${opacity.toFixed(2)})">${escaped}</span>`;
+                    } else {
+                        html += `<span style="color:rgb(${r},${g},${b})">${escaped}</span>`;
+                    }
                 }
                 html += '\n';
             }
