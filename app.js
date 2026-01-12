@@ -457,6 +457,9 @@ let videoSettings = {
 // DOM Elements
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
+const dropzoneContextMenu = document.getElementById('dropzone-context-menu');
+const contextPasteBtn = document.getElementById('context-paste');
+const contextBrowseBtn = document.getElementById('context-browse');
 const imagePreview = document.getElementById('image-preview');
 const videoPreview = document.getElementById('video-preview');
 const videoControls = document.getElementById('video-controls');
@@ -854,6 +857,59 @@ function setupEventListeners() {
 
     // Global paste handler for images and URLs
     document.addEventListener('paste', handlePaste);
+
+    // Custom context menu for dropzone
+    dropZone.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        dropzoneContextMenu.style.left = e.clientX + 'px';
+        dropzoneContextMenu.style.top = e.clientY + 'px';
+        dropzoneContextMenu.classList.add('show');
+    });
+
+    contextPasteBtn.addEventListener('click', async () => {
+        dropzoneContextMenu.classList.remove('show');
+        try {
+            const clipboardItems = await navigator.clipboard.read();
+            for (const item of clipboardItems) {
+                // Check for image types
+                const imageType = item.types.find(t => t.startsWith('image/'));
+                if (imageType) {
+                    const blob = await item.getType(imageType);
+                    loadImageFile(blob);
+                    return;
+                }
+                // Check for text (URL)
+                if (item.types.includes('text/plain')) {
+                    const blob = await item.getType('text/plain');
+                    const text = await blob.text();
+                    const trimmed = text.trim();
+                    if (trimmed.match(/^https?:\/\/.+/i) && trimmed.length < 500) {
+                        if (trimmed.match(/\.(mp4|webm|mov|avi)(\?|$)/i)) {
+                            loadVideo(trimmed);
+                        } else {
+                            loadImage(trimmed);
+                        }
+                        return;
+                    }
+                }
+            }
+            showToast('No image or URL in clipboard');
+        } catch (err) {
+            showToast('Cannot access clipboard. Use Ctrl+V instead.');
+        }
+    });
+
+    contextBrowseBtn.addEventListener('click', () => {
+        dropzoneContextMenu.classList.remove('show');
+        fileInput.click();
+    });
+
+    // Close context menu when clicking elsewhere
+    document.addEventListener('click', (e) => {
+        if (!dropzoneContextMenu.contains(e.target)) {
+            dropzoneContextMenu.classList.remove('show');
+        }
+    });
 
     // Video controls
     videoPlayBtn.addEventListener('click', playVideo);
