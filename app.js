@@ -1964,8 +1964,13 @@ async function populateCameraList() {
     }
 }
 
+let isSwitchingCamera = false;
+
 async function switchCamera(deviceId) {
     if (!isWebcamActive) return;
+    if (isSwitchingCamera) return; // Prevent concurrent switches
+
+    isSwitchingCamera = true;
 
     // Pause the capture loop during switch
     const wasCapturing = webcamAnimationId !== null;
@@ -1980,43 +1985,23 @@ async function switchCamera(deviceId) {
         webcamStream = null;
     }
 
-    // Clear video element
+    // Clear video element and event handlers
+    videoPreview.onloadedmetadata = null;
+    videoPreview.onerror = null;
     videoPreview.srcObject = null;
 
     try {
+        // Build constraints - use 'ideal' instead of 'exact' for better compatibility
         const constraints = {
-            video: deviceId ? { deviceId: { exact: deviceId } } : true,
+            video: deviceId ? { deviceId: { ideal: deviceId } } : true,
             audio: false
         };
 
         webcamStream = await navigator.mediaDevices.getUserMedia(constraints);
         videoPreview.srcObject = webcamStream;
 
-        // Wait for video to be ready with proper timeout handling
-        await new Promise((resolve, reject) => {
-            let resolved = false;
-            const timeoutId = setTimeout(() => {
-                if (!resolved) {
-                    resolved = true;
-                    reject(new Error('Timeout waiting for camera'));
-                }
-            }, 5000);
-
-            videoPreview.onloadedmetadata = () => {
-                if (!resolved) {
-                    resolved = true;
-                    clearTimeout(timeoutId);
-                    resolve();
-                }
-            };
-            videoPreview.onerror = () => {
-                if (!resolved) {
-                    resolved = true;
-                    clearTimeout(timeoutId);
-                    reject(new Error('Video element error'));
-                }
-            };
-        });
+        // Wait for video to be ready
+        await waitForVideoReady(videoPreview);
 
         await videoPreview.play();
         updateWebcamMirror();
@@ -2033,6 +2018,7 @@ async function switchCamera(deviceId) {
         try {
             webcamStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
             videoPreview.srcObject = webcamStream;
+            await waitForVideoReady(videoPreview);
             await videoPreview.play();
             updateWebcamMirror();
             currentVideo = videoPreview;
@@ -2044,7 +2030,54 @@ async function switchCamera(deviceId) {
             console.error('Fallback camera also failed:', fallbackErr);
             stopWebcam();
         }
+    } finally {
+        isSwitchingCamera = false;
     }
+}
+
+// Helper to wait for video element to be ready
+function waitForVideoReady(video, timeout = 5000) {
+    return new Promise((resolve, reject) => {
+        // Check if already ready
+        if (video.readyState >= 2) {
+            resolve();
+            return;
+        }
+
+        let resolved = false;
+        const timeoutId = setTimeout(() => {
+            if (!resolved) {
+                resolved = true;
+                video.onloadedmetadata = null;
+                video.onerror = null;
+                reject(new Error('Timeout waiting for camera'));
+            }
+        }, timeout);
+
+        const onReady = () => {
+            if (!resolved) {
+                resolved = true;
+                clearTimeout(timeoutId);
+                video.onloadedmetadata = null;
+                video.onerror = null;
+                resolve();
+            }
+        };
+
+        const onError = () => {
+            if (!resolved) {
+                resolved = true;
+                clearTimeout(timeoutId);
+                video.onloadedmetadata = null;
+                video.onerror = null;
+                reject(new Error('Video element error'));
+            }
+        };
+
+        video.onloadedmetadata = onReady;
+        video.oncanplay = onReady; // Also listen for canplay as backup
+        video.onerror = onError;
+    });
 }
 
 function updateWebcamMirror() {
