@@ -1427,6 +1427,7 @@ function updateCharRatio() {
 // Current ASCII output dimensions (updated after each conversion)
 let currentAsciiWidth = 0;
 let currentAsciiHeight = 0;
+let needsInitialAutoFit = false; // Flag to trigger auto-fit on first frame of video/webcam
 
 // Calculate and apply auto-fit font size
 function calculateAutoFitFontSize() {
@@ -1685,6 +1686,7 @@ function playVideo() {
     if (!currentVideo) return;
     currentVideo.play();
     isVideoPlaying = true;
+    needsInitialAutoFit = true; // Trigger auto-fit on first frame
     videoPlayBtn.style.display = 'none';
     videoPauseBtn.style.display = '';
     videoFps.style.display = '';
@@ -1817,6 +1819,7 @@ async function startWebcam() {
         videoFps.style.display = '';
         videoFps.textContent = 'FPS: --';
         asciiOutput.parentElement.style.userSelect = 'none';
+        needsInitialAutoFit = true; // Trigger auto-fit on first frame
         webcamAnimationId = requestAnimationFrame(webcamCaptureLoop);
 
         showToast('Webcam started');
@@ -1943,6 +1946,13 @@ async function populateCameraList() {
 async function switchCamera(deviceId) {
     if (!isWebcamActive) return;
 
+    // Pause the capture loop during switch
+    const wasCapturing = webcamAnimationId !== null;
+    if (webcamAnimationId) {
+        cancelAnimationFrame(webcamAnimationId);
+        webcamAnimationId = null;
+    }
+
     // Stop current stream tracks
     if (webcamStream) {
         webcamStream.getTracks().forEach(track => track.stop());
@@ -1961,16 +1971,40 @@ async function switchCamera(deviceId) {
         webcamStream = await navigator.mediaDevices.getUserMedia(constraints);
         videoPreview.srcObject = webcamStream;
 
-        // Wait for video to be ready
+        // Wait for video to be ready with proper timeout handling
         await new Promise((resolve, reject) => {
-            videoPreview.onloadedmetadata = resolve;
-            videoPreview.onerror = reject;
-            setTimeout(reject, 5000); // 5s timeout
+            let resolved = false;
+            const timeoutId = setTimeout(() => {
+                if (!resolved) {
+                    resolved = true;
+                    reject(new Error('Timeout waiting for camera'));
+                }
+            }, 5000);
+
+            videoPreview.onloadedmetadata = () => {
+                if (!resolved) {
+                    resolved = true;
+                    clearTimeout(timeoutId);
+                    resolve();
+                }
+            };
+            videoPreview.onerror = () => {
+                if (!resolved) {
+                    resolved = true;
+                    clearTimeout(timeoutId);
+                    reject(new Error('Video element error'));
+                }
+            };
         });
 
         await videoPreview.play();
         updateWebcamMirror();
         currentVideo = videoPreview;
+
+        // Resume capture loop
+        if (wasCapturing) {
+            webcamAnimationId = requestAnimationFrame(webcamCaptureLoop);
+        }
     } catch (err) {
         console.error('Failed to switch camera:', err);
         showToast('Failed to switch camera');
@@ -1981,6 +2015,10 @@ async function switchCamera(deviceId) {
             await videoPreview.play();
             updateWebcamMirror();
             currentVideo = videoPreview;
+            // Resume capture loop
+            if (wasCapturing) {
+                webcamAnimationId = requestAnimationFrame(webcamCaptureLoop);
+            }
         } catch (fallbackErr) {
             console.error('Fallback camera also failed:', fallbackErr);
             stopWebcam();
@@ -2549,6 +2587,10 @@ function handleWorkerMessage(e) {
         } else if (!isVideoPlaying && !isWebcamActive) {
             // Only calculate auto-fit on final conversion (no pending)
             calculateAutoFitFontSize();
+        } else if (needsInitialAutoFit) {
+            // Calculate auto-fit on first frame of video/webcam
+            needsInitialAutoFit = false;
+            calculateAutoFitFontSize();
         }
     }
 }
@@ -2759,7 +2801,17 @@ function getScaledImageData(img, width) {
 
     // Support video proxy objects with _source property
     const source = img._source || img;
-    scalingCtx.drawImage(source, 0, 0, width, height);
+
+    // Apply horizontal flip for webcam mirror
+    const shouldMirror = isWebcamActive && webcamMirror.checked;
+    if (shouldMirror) {
+        scalingCtx.save();
+        scalingCtx.scale(-1, 1);
+        scalingCtx.drawImage(source, -width, 0, width, height);
+        scalingCtx.restore();
+    } else {
+        scalingCtx.drawImage(source, 0, 0, width, height);
+    }
 
     return {
         imageData: scalingCtx.getImageData(0, 0, width, height),
