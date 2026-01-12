@@ -2548,6 +2548,9 @@ function renderToCanvas(ascii, colorData, width, height) {
     if (asciiCanvas.width !== canvasWidth || asciiCanvas.height !== canvasHeight) {
         asciiCanvas.width = canvasWidth;
         asciiCanvas.height = canvasHeight;
+        // Set CSS size to match internal resolution (prevents flex stretching on mobile)
+        asciiCanvas.style.width = canvasWidth + 'px';
+        asciiCanvas.style.height = canvasHeight + 'px';
     }
 
     // Set up context
