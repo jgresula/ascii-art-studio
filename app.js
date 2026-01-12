@@ -1062,6 +1062,9 @@ function setupEventListeners() {
         // Don't trigger if clicking on buttons or controls inside
         if (e.target.closest('button') || e.target.closest('a')) return;
 
+        // Ignore clicks that happen right after closing a modal (prevents ghost clicks on mobile)
+        if (Date.now() - modalCloseTime < 300) return;
+
         if (isWebcamActive) {
             // Toggle webcam pause/resume
             if (webcamAnimationId) {
@@ -2297,6 +2300,8 @@ function stopGifRecording(encode) {
 }
 
 // Video Settings Modal
+let modalCloseTime = 0; // Track when modal was closed to prevent ghost clicks on mobile
+
 function showVideoSettingsModal() {
     // Update format options based on browser support
     updateFormatOptions();
@@ -2306,6 +2311,7 @@ function showVideoSettingsModal() {
 
 function hideVideoSettingsModal() {
     videoSettingsModal.classList.remove('show');
+    modalCloseTime = Date.now();
 }
 
 function updateFormatOptions() {
@@ -2670,8 +2676,8 @@ function handleWorkerMessage(e) {
         } else if (!isVideoPlaying && !isWebcamActive) {
             // Only calculate auto-fit on final conversion (no pending)
             calculateAutoFitFontSize();
-        } else if (needsInitialAutoFit) {
-            // Calculate auto-fit on first frame of video/webcam
+        } else if (needsInitialAutoFit || autoFitFont.checked) {
+            // Calculate auto-fit on first frame of video/webcam, or when auto-fit is enabled
             needsInitialAutoFit = false;
             calculateAutoFitFontSize();
         }
