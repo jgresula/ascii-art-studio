@@ -454,6 +454,9 @@ let videoSettings = {
     duration: 30
 };
 
+// UI state - track when popups close to prevent ghost clicks on mobile
+let popupCloseTime = 0;
+
 // DOM Elements
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
@@ -673,6 +676,9 @@ function init() {
         sharePngBtn.style.display = '';
     }
 
+    // Hide webcam button if camera not available
+    checkWebcamAvailability();
+
     // Setup mobile UI
     setupMobileUI();
 
@@ -762,6 +768,7 @@ function setupMobileUI() {
             s.classList.remove('mobile-active');
         });
         mobileToolbarBtns.forEach(b => b.classList.remove('active'));
+        popupCloseTime = Date.now();
     }
 
     // Close panel on escape key
@@ -966,6 +973,7 @@ function setupEventListeners() {
 
     contextPasteBtn.addEventListener('click', async () => {
         dropzoneContextMenu.classList.remove('show');
+        popupCloseTime = Date.now();
         try {
             const clipboardItems = await navigator.clipboard.read();
             for (const item of clipboardItems) {
@@ -999,13 +1007,17 @@ function setupEventListeners() {
 
     contextBrowseBtn.addEventListener('click', () => {
         dropzoneContextMenu.classList.remove('show');
+        popupCloseTime = Date.now();
         fileInput.click();
     });
 
     // Close context menu when clicking elsewhere
     document.addEventListener('click', (e) => {
         if (!dropzoneContextMenu.contains(e.target)) {
-            dropzoneContextMenu.classList.remove('show');
+            if (dropzoneContextMenu.classList.contains('show')) {
+                dropzoneContextMenu.classList.remove('show');
+                popupCloseTime = Date.now();
+            }
         }
     });
 
@@ -1062,8 +1074,8 @@ function setupEventListeners() {
         // Don't trigger if clicking on buttons or controls inside
         if (e.target.closest('button') || e.target.closest('a')) return;
 
-        // Ignore clicks that happen right after closing a modal (prevents ghost clicks on mobile)
-        if (Date.now() - modalCloseTime < 300) return;
+        // Ignore clicks that happen right after closing a popup (prevents ghost clicks on mobile)
+        if (Date.now() - popupCloseTime < 300) return;
 
         if (isWebcamActive) {
             // Toggle webcam pause/resume
@@ -1959,6 +1971,26 @@ function webcamCaptureLoop(timestamp) {
     webcamAnimationId = requestAnimationFrame(webcamCaptureLoop);
 }
 
+// Check if webcam is available and hide button if not
+async function checkWebcamAvailability() {
+    // Check if mediaDevices API is available
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        webcamStartBtn.style.display = 'none';
+        return;
+    }
+
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cameras = devices.filter(d => d.kind === 'videoinput');
+        if (cameras.length === 0) {
+            webcamStartBtn.style.display = 'none';
+        }
+    } catch (err) {
+        // If we can't enumerate devices, hide webcam button
+        webcamStartBtn.style.display = 'none';
+    }
+}
+
 async function populateCameraList() {
     try {
         const devices = await navigator.mediaDevices.enumerateDevices();
@@ -2300,8 +2332,6 @@ function stopGifRecording(encode) {
 }
 
 // Video Settings Modal
-let modalCloseTime = 0; // Track when modal was closed to prevent ghost clicks on mobile
-
 function showVideoSettingsModal() {
     // Update format options based on browser support
     updateFormatOptions();
@@ -2311,7 +2341,7 @@ function showVideoSettingsModal() {
 
 function hideVideoSettingsModal() {
     videoSettingsModal.classList.remove('show');
-    modalCloseTime = Date.now();
+    popupCloseTime = Date.now();
 }
 
 function updateFormatOptions() {
