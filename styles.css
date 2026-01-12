@@ -486,17 +486,22 @@ input[type="color"] {
     border-top: 1px solid var(--border-color);
 }
 
-.preview-section h4 {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    margin-bottom: 8px;
-}
-
 #image-preview {
     max-width: 100%;
     max-height: 150px;
     border-radius: 6px;
     display: none;
+}
+
+#video-preview {
+    max-width: 100%;
+    border-radius: 4px;
+    display: none;
+}
+
+#no-preview {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
 }
 
 /* Webcam */
@@ -823,6 +828,49 @@ input[type="color"] {
         padding-right: 40px;
         cursor: default;
         border-bottom: 1px solid var(--border-color);
+    }
+
+    /* Mobile media input row - side by side layout */
+    .media-input-row {
+        display: flex;
+        gap: 12px;
+        max-height: 120px;
+        align-items: stretch;
+    }
+
+    .media-input-row .drop-zone {
+        flex: 1;
+        min-width: 0;
+        padding: 16px 12px;
+    }
+
+    .media-input-row .preview-section {
+        margin: 0;
+        padding: 0;
+        border: none;
+        flex-shrink: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Show preview section when has-preview class is set */
+    .media-input-row.has-preview .preview-section {
+        display: flex;
+    }
+
+    .media-input-row #image-preview,
+    .media-input-row #video-preview {
+        max-height: 120px;
+        max-width: 150px;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+        border-radius: 6px;
+    }
+
+    .media-input-row #no-preview {
+        display: none;
     }
 
     /* Expand section content on mobile */

@@ -1611,6 +1611,7 @@ function loadVideo(src) {
         noPreview.style.display = 'none';
         videoControls.style.display = 'block';
         gifExportControls.style.display = 'flex';
+        document.querySelector('.media-input-row')?.classList.add('has-preview');
 
         // Update seek bar max
         videoSeek.max = Math.floor(videoPreview.duration);
@@ -1802,6 +1803,7 @@ async function startWebcam() {
         webcamStartBtn.style.display = 'none';
         webcamStopBtn.style.display = '';
         placeholder.style.display = 'none';
+        document.querySelector('.media-input-row')?.classList.add('has-preview');
 
         // Apply mirror if enabled
         updateWebcamMirror();
@@ -1876,6 +1878,7 @@ function stopWebcam() {
     // Show placeholder if no image
     if (!currentImage) {
         placeholder.style.display = 'block';
+        document.querySelector('.media-input-row')?.classList.remove('has-preview');
     }
 
     showToast('Webcam stopped');
@@ -2374,6 +2377,7 @@ function showPreview(src) {
     videoControls.style.display = 'none';
     gifExportControls.style.display = 'none';
     noPreview.style.display = 'none';
+    document.querySelector('.media-input-row')?.classList.add('has-preview');
 }
 
 // Measure character cell dimensions
