@@ -33,6 +33,7 @@ body {
     background-color: var(--bg-primary);
     color: var(--text-primary);
     min-height: 100vh;
+    min-height: 100dvh;
     padding: 20px;
 }
 
@@ -60,6 +61,7 @@ header p {
     gap: 24px;
     align-items: start;
     min-height: calc(100vh - 140px);
+    min-height: calc(100dvh - 140px);
 }
 
 /* Hidden on desktop */
@@ -80,6 +82,7 @@ header p {
     padding: 20px;
     height: fit-content;
     max-height: calc(100vh - 140px);
+    max-height: calc(100dvh - 140px);
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: transparent transparent;
@@ -646,10 +649,24 @@ input[type="color"] {
 @media (max-width: 900px) {
     body {
         padding: 10px;
+        height: 100vh;
+        height: 100dvh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .container {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
     }
 
     header {
         margin-bottom: 10px;
+        flex-shrink: 0;
     }
 
     header h1 {
@@ -670,6 +687,7 @@ input[type="color"] {
         border-radius: 8px;
         margin-bottom: 10px;
         overflow-x: auto;
+        flex-shrink: 0;
     }
 
     .mobile-preset-select {
@@ -714,7 +732,11 @@ input[type="color"] {
 
     /* Hide sidebar on mobile */
     .main-content {
-        display: block;
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
     }
 
     .controls {
@@ -810,11 +832,13 @@ input[type="color"] {
         display: block;
     }
 
-    /* Output area takes full width on mobile */
+    /* Output area takes remaining space on mobile */
     .output-area {
-        min-height: calc(100vh - 140px);
+        flex: 1;
+        min-height: 0;
         display: flex;
         flex-direction: column;
+        overflow: hidden;
     }
 
     .output-header {
@@ -827,9 +851,12 @@ input[type="color"] {
 
     /* Bottom-align ASCII output on mobile for visibility during settings */
     .ascii-container {
+        flex: 1;
+        min-height: 0;
         display: flex;
         flex-direction: column;
         justify-content: flex-end;
+        overflow: auto;
     }
 
     /* Smaller buttons on mobile */
