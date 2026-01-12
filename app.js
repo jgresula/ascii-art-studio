@@ -1,0 +1,2929 @@
+// Adaptive debounce - adjusts delay based on last conversion time
+let lastConversionTime = 50; // Start with reasonable default
+const MIN_DEBOUNCE = 20;     // Minimum debounce delay
+const DEBOUNCE_BUFFER = 10;  // Extra buffer on top of conversion time
+
+function adaptiveDebounce(fn) {
+    let timeoutId;
+    return function(...args) {
+        clearTimeout(timeoutId);
+        const delay = Math.max(MIN_DEBOUNCE, lastConversionTime + DEBOUNCE_BUFFER);
+        timeoutId = setTimeout(() => fn.apply(this, args), delay);
+    };
+}
+
+// Character sets
+const CHAR_SETS = {
+    standard: '@%#+=*-:. ',
+    detailed: '$@B%8&WM#oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~*<>i!lI;:,"^`\'. ',
+    blocks: '█▓▒░ ',
+    simple: '#. ',
+    single: '█'
+};
+
+// Edge detection characters by direction
+const EDGE_CHARS = {
+    horizontal: '-',
+    vertical: '|',
+    diag1: '/',
+    diag2: '\\',
+    corner: '+',
+    none: ' '
+};
+
+// Default settings preset
+const DEFAULT_SETTINGS = {
+    // Display
+    theme: 'dark',
+    charsPerRow: 100,
+    fontSize: 10,
+    autoRatio: true,
+    charRatio: 0.5,
+    // Algorithm
+    algorithm: 'brightness',
+    charSetPreset: 'standard',
+    customChars: '@%#+=*-:. ',
+    ditherStrength: 100,
+    edgeThreshold: 50,
+    patternBlockSize: '3',
+    patternChars: "@#$%&8BMW*oahkbdpqwmZO0QCJYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,. ",
+    // Output
+    colorMode: 'truecolor',
+    invertBrightness: true,
+    histogramEq: true,
+    contrast: 100,
+    brightnessBlend: 50,
+    saturation: 100,
+    opacity: 100,
+    brightnessAsOpacity: false,
+    monoFg: '#f0f0f0',
+    monoBg: '#0d0d0d'
+};
+
+// Built-in settings presets
+const SETTINGS_PRESETS = {
+    'default': {
+        name: 'Default',
+        settings: { ...DEFAULT_SETTINGS }
+    },
+    'high-detail': {
+        name: 'High Detail',
+        settings: {
+            ...DEFAULT_SETTINGS,
+            charsPerRow: 150,
+            charSetPreset: 'detailed',
+            customChars: '$@B%8&WM#oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~*<>i!lI;:,"^`\'. ',
+            colorMode: 'truecolor'
+        }
+    },
+    'retro-terminal': {
+        name: 'Retro Terminal',
+        settings: {
+            ...DEFAULT_SETTINGS,
+            charSetPreset: 'simple',
+            customChars: '#. ',
+            colorMode: 'monochrome',
+            monoFg: '#33ff33',
+            monoBg: '#0a0a0a',
+            invertBrightness: true
+        }
+    },
+    'classic-ascii': {
+        name: 'Classic ASCII',
+        settings: {
+            ...DEFAULT_SETTINGS,
+            colorMode: 'monochrome',
+            monoFg: '#ffffff',
+            monoBg: '#000000'
+        }
+    },
+    'print-friendly': {
+        name: 'Print Friendly',
+        settings: {
+            ...DEFAULT_SETTINGS,
+            theme: 'light',
+            colorMode: 'monochrome',
+            invertBrightness: false,
+            monoFg: '#000000',
+            monoBg: '#ffffff'
+        }
+    },
+    'colorful': {
+        name: 'Colorful',
+        settings: {
+            ...DEFAULT_SETTINGS,
+            colorMode: 'truecolor',
+            saturation: 150,
+            contrast: 120
+        }
+    },
+    'limited-palette': {
+        name: 'Limited Palette (16)',
+        settings: {
+            ...DEFAULT_SETTINGS,
+            colorMode: 'adaptive16',
+            contrast: 110
+        }
+    },
+    'grayscale': {
+        name: 'Grayscale',
+        settings: {
+            ...DEFAULT_SETTINGS,
+            colorMode: 'adaptive16',
+            saturation: 0
+        }
+    },
+    'blocks': {
+        name: 'Blocks',
+        settings: {
+            ...DEFAULT_SETTINGS,
+            charSetPreset: 'blocks',
+            customChars: '█▓▒░ ',
+            colorMode: 'truecolor'
+        }
+    },
+    'blocks-grayscale': {
+        name: 'Blocks Grayscale',
+        settings: {
+            ...DEFAULT_SETTINGS,
+            charSetPreset: 'blocks',
+            customChars: '█▓▒░ ',
+            colorMode: 'adaptive16',
+            saturation: 0
+        }
+    },
+    'opacity-color': {
+        name: 'Opacity (Color)',
+        settings: {
+            ...DEFAULT_SETTINGS,
+            charSetPreset: 'single',
+            customChars: '█',
+            colorMode: 'truecolor',
+            brightnessAsOpacity: true
+        }
+    },
+    'opacity-grayscale': {
+        name: 'Opacity (Grayscale)',
+        settings: {
+            ...DEFAULT_SETTINGS,
+            charSetPreset: 'single',
+            customChars: '█',
+            colorMode: 'adaptive16',
+            saturation: 0,
+            brightnessAsOpacity: true
+        }
+    },
+    'transparent-overlay': {
+        name: 'Transparent Overlay',
+        settings: {
+            ...DEFAULT_SETTINGS,
+            opacity: 60,
+            colorMode: 'truecolor'
+        }
+    }
+};
+
+// Measure visual brightness of a character (0 = black/dense, 1 = white/empty)
+function measureCharBrightness(char, fontFamilyValue) {
+    const size = 24;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    canvas.width = size;
+    canvas.height = size;
+
+    // White background
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, size, size);
+
+    // Draw character in black
+    ctx.fillStyle = 'black';
+    ctx.font = `${size}px ${fontFamilyValue}`;
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'center';
+    ctx.fillText(char, size / 2, 0);
+
+    // Calculate average brightness (white pixels = 255, black = 0)
+    const imageData = ctx.getImageData(0, 0, size, size);
+    const pixels = imageData.data;
+    let total = 0;
+    for (let i = 0; i < pixels.length; i += 4) {
+        total += pixels[i]; // Red channel (grayscale)
+    }
+    // Return 0-1 where 0 = dense/dark character, 1 = empty/light character
+    return total / (size * size * 255);
+}
+
+// Sort characters by brightness and optionally reduce to N chars
+function sortAndOptimizeChars(chars, reduceCount, fontFamilyValue) {
+    // Remove duplicates while preserving order
+    const uniqueChars = [...new Set(chars.split(''))];
+
+    // Check if space is included
+    const hasSpace = uniqueChars.includes(' ');
+    const charsToMeasure = uniqueChars.filter(c => c !== ' ');
+
+    // Measure brightness for each character
+    const measured = charsToMeasure.map(char => ({
+        char,
+        brightness: measureCharBrightness(char, fontFamilyValue)
+    }));
+
+    // Sort by brightness (dark to light)
+    measured.sort((a, b) => a.brightness - b.brightness);
+
+    let result = measured;
+
+    // Reduce to N chars if specified (and > 0)
+    if (reduceCount > 0 && reduceCount < measured.length) {
+        // Select characters at evenly-spaced brightness intervals
+        const reduced = [];
+        for (let i = 0; i < reduceCount; i++) {
+            // Map i to index in sorted array
+            const index = Math.round(i * (measured.length - 1) / (reduceCount - 1));
+            reduced.push(measured[index]);
+        }
+        result = reduced;
+    }
+
+    // Build result string, add space at end if it was present
+    let resultStr = result.map(m => m.char).join('');
+    if (hasSpace) {
+        resultStr += ' ';
+    }
+
+    return resultStr;
+}
+
+// ANSI 256 color palette (standard xterm colors)
+const ANSI_256 = (function() {
+    const colors = [];
+    // Standard colors (0-15)
+    const standard = [
+        [0,0,0], [128,0,0], [0,128,0], [128,128,0],
+        [0,0,128], [128,0,128], [0,128,128], [192,192,192],
+        [128,128,128], [255,0,0], [0,255,0], [255,255,0],
+        [0,0,255], [255,0,255], [0,255,255], [255,255,255]
+    ];
+    colors.push(...standard);
+    // 216 color cube (16-231)
+    for (let r = 0; r < 6; r++) {
+        for (let g = 0; g < 6; g++) {
+            for (let b = 0; b < 6; b++) {
+                colors.push([r ? r * 40 + 55 : 0, g ? g * 40 + 55 : 0, b ? b * 40 + 55 : 0]);
+            }
+        }
+    }
+    // Grayscale (232-255)
+    for (let i = 0; i < 24; i++) {
+        const v = i * 10 + 8;
+        colors.push([v, v, v]);
+    }
+    return colors;
+})();
+
+// Median cut color quantization
+function quantizeColors(pixels, numColors, saturation = 1) {
+    // Collect unique colors (sample for performance)
+    const colorMap = new Map();
+    const step = Math.max(1, Math.floor(pixels.length / 4 / 10000)); // Sample max ~10k pixels
+    for (let i = 0; i < pixels.length; i += 4 * step) {
+        let r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
+
+        // Apply saturation before quantization (for grayscale palettes)
+        if (saturation < 1) {
+            const gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+            r = Math.round(gray + saturation * (r - gray));
+            g = Math.round(gray + saturation * (g - gray));
+            b = Math.round(gray + saturation * (b - gray));
+        }
+
+        const key = (r << 16) | (g << 8) | b;
+        colorMap.set(key, (colorMap.get(key) || 0) + 1);
+    }
+
+    // Convert to array of [r, g, b, count]
+    let colorList = [];
+    for (const [key, count] of colorMap) {
+        colorList.push([
+            (key >> 16) & 0xff,
+            (key >> 8) & 0xff,
+            key & 0xff,
+            count
+        ]);
+    }
+
+    if (colorList.length <= numColors) {
+        return colorList.map(c => [c[0], c[1], c[2]]);
+    }
+
+    // Median cut algorithm
+    function getRange(colors, channel) {
+        let min = 255, max = 0;
+        for (const c of colors) {
+            if (c[channel] < min) min = c[channel];
+            if (c[channel] > max) max = c[channel];
+        }
+        return max - min;
+    }
+
+    function medianCut(colors, depth) {
+        if (depth === 0 || colors.length <= 1) {
+            // Average the colors in this bucket
+            let tr = 0, tg = 0, tb = 0, tw = 0;
+            for (const c of colors) {
+                tr += c[0] * c[3];
+                tg += c[1] * c[3];
+                tb += c[2] * c[3];
+                tw += c[3];
+            }
+            if (tw === 0) return [];
+            return [[Math.round(tr / tw), Math.round(tg / tw), Math.round(tb / tw)]];
+        }
+
+        // Find channel with largest range
+        const ranges = [getRange(colors, 0), getRange(colors, 1), getRange(colors, 2)];
+        const channel = ranges.indexOf(Math.max(...ranges));
+
+        // Sort by that channel
+        colors.sort((a, b) => a[channel] - b[channel]);
+
+        // Split at median
+        const mid = Math.floor(colors.length / 2);
+        return [
+            ...medianCut(colors.slice(0, mid), depth - 1),
+            ...medianCut(colors.slice(mid), depth - 1)
+        ];
+    }
+
+    const depth = Math.ceil(Math.log2(numColors));
+    return medianCut(colorList, depth).slice(0, numColors);
+}
+
+// Find nearest color in palette
+function nearestColor(r, g, b, palette) {
+    let minDist = Infinity;
+    let nearest = palette[0];
+    for (const c of palette) {
+        const dr = r - c[0], dg = g - c[1], db = b - c[2];
+        const dist = dr * dr + dg * dg + db * db;
+        if (dist < minDist) {
+            minDist = dist;
+            nearest = c;
+        }
+    }
+    return nearest;
+}
+
+// State
+let currentImage = null;
+let cachedCharRatio = null;
+let cachedPalette = null;
+let lastColoredHtml = '';
+
+// Web Worker for off-thread processing
+let asciiWorker = null;
+let workerBusy = false;
+let pendingConversion = false;
+
+// Initialize worker
+try {
+    asciiWorker = new Worker('ascii-worker.js');
+    asciiWorker.onmessage = handleWorkerMessage;
+    asciiWorker.onerror = (e) => {
+        console.warn('Worker error, falling back to main thread:', e);
+        asciiWorker = null;
+    };
+} catch (e) {
+    console.warn('Workers not supported, using main thread');
+}
+
+// Video state
+let currentVideo = null;
+let isVideoMode = false;
+let isVideoPlaying = false;
+let videoAnimationId = null;
+let lastFrameTime = 0;
+let frameCount = 0;
+let fpsUpdateTime = 0;
+let currentFps = 0;
+
+// Reusable video frame extraction objects
+let videoFrameCanvas = null;
+let videoFrameCtx = null;
+
+// Reusable canvas for image scaling (optimization #3)
+let scalingCanvas = null;
+let scalingCtx = null;
+
+// GIF recording state
+let isRecordingGif = false;
+let gifFrames = [];
+let gifStartTime = 0;
+const GIF_MAX_DURATION = 10000; // 10 seconds max
+const GIF_FRAME_INTERVAL = 100; // 10 FPS for GIF
+
+// Video recording state (MediaRecorder)
+let isRecordingVideo = false;
+let mediaRecorder = null;
+let videoChunks = [];
+let videoStartTime = 0;
+let videoMaxDuration = 30000; // configurable via modal
+
+// Video recording settings (from modal)
+let videoSettings = {
+    format: 'webm-vp9',
+    quality: 'medium',
+    framerate: 30,
+    duration: 30
+};
+
+// DOM Elements
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const urlInput = document.getElementById('url-input');
+const loadUrlBtn = document.getElementById('load-url-btn');
+const imagePreview = document.getElementById('image-preview');
+const videoPreview = document.getElementById('video-preview');
+const videoControls = document.getElementById('video-controls');
+const videoPlayBtn = document.getElementById('video-play-btn');
+const videoPauseBtn = document.getElementById('video-pause-btn');
+const videoStopBtn = document.getElementById('video-stop-btn');
+const videoSeek = document.getElementById('video-seek');
+const videoTime = document.getElementById('video-time');
+const videoFps = document.getElementById('video-fps');
+const videoLoop = document.getElementById('video-loop');
+const noPreview = document.getElementById('no-preview');
+const charsPerRow = document.getElementById('chars-per-row');
+const charsValue = document.getElementById('chars-value');
+const algorithm = document.getElementById('algorithm');
+const asciiOutput = document.getElementById('ascii-output');
+const asciiCanvas = document.getElementById('ascii-canvas');
+const asciiCanvasCtx = asciiCanvas.getContext('2d', { alpha: false });
+const outputInfo = document.getElementById('output-info');
+const placeholder = document.getElementById('placeholder');
+const loading = document.getElementById('loading');
+const copyTextBtn = document.getElementById('copy-text-btn');
+const copyHtmlBtn = document.getElementById('copy-html-btn');
+const copyMarkdownBtn = document.getElementById('copy-markdown-btn');
+const downloadPngBtn = document.getElementById('download-png-btn');
+const gifExportControls = document.getElementById('gif-export-controls');
+const downloadGifBtn = document.getElementById('download-gif-btn');
+const downloadVideoBtn = document.getElementById('download-video-btn');
+const gifStatus = document.getElementById('gif-status');
+const settingsPreset = document.getElementById('settings-preset');
+const saveSettingsPresetBtn = document.getElementById('save-settings-preset-btn');
+const deleteSettingsPresetBtn = document.getElementById('delete-settings-preset-btn');
+const toast = document.getElementById('toast');
+
+// Video settings modal elements
+const videoSettingsModal = document.getElementById('video-settings-modal');
+const modalClose = document.getElementById('modal-close');
+const modalCloseSave = document.getElementById('modal-close-save');
+const videoPreferencesBtn = document.getElementById('video-preferences-btn');
+const videoFormatSelect = document.getElementById('video-format');
+const videoQualitySelect = document.getElementById('video-quality');
+const videoFramerateSelect = document.getElementById('video-framerate');
+const videoDurationSelect = document.getElementById('video-duration');
+
+// Display settings
+const themeSelect = document.getElementById('theme-select');
+const fontFamily = document.getElementById('font-family');
+const fontSize = document.getElementById('font-size');
+const fontSizeValue = document.getElementById('font-size-value');
+const charRatio = document.getElementById('char-ratio');
+const charRatioValue = document.getElementById('char-ratio-value');
+const autoRatio = document.getElementById('auto-ratio');
+
+// Brightness settings
+const charSet = document.getElementById('char-set');
+const charSetCustomGroup = document.getElementById('char-set-custom-group');
+const customChars = document.getElementById('custom-chars');
+const sortCharsBtn = document.getElementById('sort-chars-btn');
+const reduceCount = document.getElementById('reduce-count');
+const saveCharsBtn = document.getElementById('save-chars-btn');
+const deleteCharsBtn = document.getElementById('delete-chars-btn');
+
+// Edge settings
+const edgeThreshold = document.getElementById('edge-threshold');
+const edgeThresholdValue = document.getElementById('edge-threshold-value');
+
+// Dithering settings
+const ditherStrength = document.getElementById('dither-strength');
+const ditherStrengthValue = document.getElementById('dither-strength-value');
+
+// Pattern settings
+const patternBlockSize = document.getElementById('pattern-block-size');
+const patternChars = document.getElementById('pattern-chars');
+
+// Output settings (global)
+const invertBrightness = document.getElementById('invert-brightness');
+const contrastAmount = document.getElementById('contrast-amount');
+const contrastAmountValue = document.getElementById('contrast-amount-value');
+const contrastHistogram = document.getElementById('contrast-histogram');
+const colorMode = document.getElementById('color-mode');
+const colorSliders = document.querySelectorAll('.color-slider');
+const brightnessBlend = document.getElementById('brightness-blend');
+const brightnessBlendValue = document.getElementById('brightness-blend-value');
+const colorSaturation = document.getElementById('color-saturation');
+const colorSaturationValue = document.getElementById('color-saturation-value');
+const globalOpacity = document.getElementById('global-opacity');
+const globalOpacityValue = document.getElementById('global-opacity-value');
+const brightnessOpacity = document.getElementById('brightness-opacity');
+const monoSettings = document.querySelector('.mono-settings');
+const monoFg = document.getElementById('mono-fg');
+const monoBg = document.getElementById('mono-bg');
+
+// Font detection
+const CANDIDATE_FONTS = [
+    { name: 'Courier New', value: "'Courier New', Courier, monospace" },
+    { name: 'Consolas', value: "'Consolas', monospace" },
+    { name: 'Monaco', value: "'Monaco', monospace" },
+    { name: 'Menlo', value: "'Menlo', monospace" },
+    { name: 'Liberation Mono', value: "'Liberation Mono', monospace" },
+    { name: 'Lucida Console', value: "'Lucida Console', monospace" },
+    { name: 'DejaVu Sans Mono', value: "'DejaVu Sans Mono', monospace" },
+    { name: 'Fira Code', value: "'Fira Code', monospace" },
+    { name: 'Source Code Pro', value: "'Source Code Pro', monospace" },
+    { name: 'JetBrains Mono', value: "'JetBrains Mono', monospace" },
+    { name: 'Roboto Mono', value: "'Roboto Mono', monospace" },
+    { name: 'Ubuntu Mono', value: "'Ubuntu Mono', monospace" },
+    { name: 'SF Mono', value: "'SF Mono', monospace" },
+    { name: 'Cascadia Code', value: "'Cascadia Code', monospace" },
+    { name: 'Hack', value: "'Hack', monospace" },
+    { name: 'Inconsolata', value: "'Inconsolata', monospace" },
+    { name: 'Droid Sans Mono', value: "'Droid Sans Mono', monospace" },
+    { name: 'PT Mono', value: "'PT Mono', monospace" },
+    { name: 'Andale Mono', value: "'Andale Mono', monospace" },
+    { name: 'OCR A Extended', value: "'OCR A Extended', monospace" },
+];
+
+function isFontAvailable(fontName) {
+    // Create test elements
+    const baseFonts = ['monospace', 'sans-serif', 'serif'];
+    const testString = 'mmmmmmmmmmlli';
+    const testSize = '72px';
+
+    const span = document.createElement('span');
+    span.style.position = 'absolute';
+    span.style.left = '-9999px';
+    span.style.fontSize = testSize;
+    span.style.lineHeight = 'normal';
+    span.textContent = testString;
+    document.body.appendChild(span);
+
+    // Get baseline widths
+    const baseWidths = {};
+    for (const baseFont of baseFonts) {
+        span.style.fontFamily = baseFont;
+        baseWidths[baseFont] = span.offsetWidth;
+    }
+
+    // Test the candidate font
+    let detected = false;
+    for (const baseFont of baseFonts) {
+        span.style.fontFamily = `'${fontName}', ${baseFont}`;
+        if (span.offsetWidth !== baseWidths[baseFont]) {
+            detected = true;
+            break;
+        }
+    }
+
+    document.body.removeChild(span);
+    return detected;
+}
+
+function populateFontSelector() {
+    const availableFonts = CANDIDATE_FONTS.filter(f => isFontAvailable(f.name));
+
+    // Always include system monospace as fallback
+    availableFonts.push({ name: 'System Monospace', value: 'monospace' });
+
+    fontFamily.innerHTML = '';
+    for (const font of availableFonts) {
+        const option = document.createElement('option');
+        option.value = font.value;
+        option.textContent = font.name;
+        fontFamily.appendChild(option);
+    }
+}
+
+// Theme handling
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('ascii-theme', theme);
+    updateInvertDefaults();
+    updateMonoColors();
+}
+
+function isDarkMode() {
+    const theme = themeSelect.value;
+    if (theme === 'dark') return true;
+    if (theme === 'light') return false;
+    // Auto - check system preference
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+function updateInvertDefaults() {
+    const shouldInvert = isDarkMode();
+    invertBrightness.checked = shouldInvert;
+}
+
+// Initialize
+function init() {
+    // Load saved theme or default to dark
+    const savedTheme = localStorage.getItem('ascii-theme') || 'dark';
+    themeSelect.value = savedTheme;
+    applyTheme(savedTheme);
+
+    populateFontSelector();
+    populateSettingsPresetDropdown();
+    setupEventListeners();
+    setupSectionToggles();
+    updateDisplaySettings();
+    updateCharRatio();
+    updateAlgorithmPanel();
+    updateMonoColors();
+    initColorModeVisibility();
+    initSliderValues();
+    loadSavedChars();
+    updateSettingsDeleteButtonVisibility();
+    charRatio.disabled = autoRatio.checked;
+
+    // Listen for system theme changes
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (themeSelect.value === 'auto') {
+            updateInvertDefaults();
+            updateMonoColors();
+            if (currentImage) convertToAscii();
+        }
+    });
+
+    // Auto-load default image
+    loadDefaultImage();
+}
+
+function setupSectionToggles() {
+    const sections = document.querySelectorAll('.control-section[data-section]');
+    const savedStates = JSON.parse(localStorage.getItem('ascii-sections') || '{}');
+
+    sections.forEach(section => {
+        const name = section.dataset.section;
+        const h3 = section.querySelector('h3');
+
+        // Restore collapsed state
+        if (savedStates[name]) {
+            section.classList.add('collapsed');
+        }
+
+        // Add click handler
+        h3.addEventListener('click', () => {
+            section.classList.toggle('collapsed');
+            // Save state
+            const states = JSON.parse(localStorage.getItem('ascii-sections') || '{}');
+            states[name] = section.classList.contains('collapsed');
+            localStorage.setItem('ascii-sections', JSON.stringify(states));
+        });
+    });
+}
+
+function updateMonoColors() {
+    const dark = isDarkMode();
+    monoFg.value = dark ? '#f0f0f0' : '#000000';
+    monoBg.value = dark ? '#0d0d0d' : '#ffffff';
+}
+
+function initColorModeVisibility() {
+    const isMono = colorMode.value === 'monochrome';
+    monoSettings.style.display = isMono ? 'block' : 'none';
+    colorSliders.forEach(el => el.classList.toggle('disabled', isMono));
+}
+
+function initSliderValues() {
+    // Initialize all slider value displays from actual slider values
+    fontSizeValue.textContent = fontSize.value;
+    charsValue.textContent = charsPerRow.value;
+    charRatioValue.textContent = charRatio.value;
+    contrastAmountValue.textContent = contrastAmount.value;
+    edgeThresholdValue.textContent = edgeThreshold.value;
+    ditherStrengthValue.textContent = ditherStrength.value;
+    brightnessBlendValue.textContent = brightnessBlend.value;
+    colorSaturationValue.textContent = colorSaturation.value;
+    globalOpacityValue.textContent = globalOpacity.value;
+}
+
+// Character set preset management
+function getCustomPresets() {
+    return JSON.parse(localStorage.getItem('ascii-custom-presets') || '{}');
+}
+
+function saveCustomPreset(name, chars) {
+    const presets = getCustomPresets();
+    presets[name] = chars;
+    localStorage.setItem('ascii-custom-presets', JSON.stringify(presets));
+}
+
+function deleteCustomPreset(name) {
+    const presets = getCustomPresets();
+    delete presets[name];
+    localStorage.setItem('ascii-custom-presets', JSON.stringify(presets));
+}
+
+function populateCustomPresets() {
+    const presets = getCustomPresets();
+    const names = Object.keys(presets).sort();
+
+    // Populate char set dropdown
+    charSetCustomGroup.innerHTML = '';
+    for (const name of names) {
+        const option = document.createElement('option');
+        option.value = 'custom:' + name;
+        option.textContent = name;
+        charSetCustomGroup.appendChild(option);
+    }
+}
+
+function isCustomPreset(value) {
+    return value && value.startsWith('custom:');
+}
+
+function getPresetName(value) {
+    return value.replace('custom:', '');
+}
+
+function updateDeleteButtonVisibility() {
+    deleteCharsBtn.style.display = isCustomPreset(charSet.value) ? 'inline-block' : 'none';
+}
+
+function handleSavePreset(charsInput, selectEl) {
+    const chars = charsInput.value.trim();
+    if (!chars) {
+        showToast('No characters to save');
+        return;
+    }
+
+    const name = prompt('Enter a name for this character set:');
+    if (!name || !name.trim()) return;
+
+    const trimmedName = name.trim();
+    if (CHAR_SETS[trimmedName.toLowerCase()]) {
+        showToast('Cannot use a built-in preset name');
+        return;
+    }
+
+    saveCustomPreset(trimmedName, chars);
+    populateCustomPresets();
+    selectEl.value = 'custom:' + trimmedName;
+    updateDeleteButtonVisibility();
+    showToast('Preset saved: ' + trimmedName);
+}
+
+function handleDeletePreset(selectEl, charsInput) {
+    const value = selectEl.value;
+    if (!isCustomPreset(value)) return;
+
+    const name = getPresetName(value);
+    if (!confirm('Delete preset "' + name + '"?')) return;
+
+    deleteCustomPreset(name);
+    populateCustomPresets();
+    selectEl.value = 'standard';
+    charsInput.value = CHAR_SETS.standard;
+    updateDeleteButtonVisibility();
+    showToast('Preset deleted');
+    if (currentImage) convertToAscii();
+}
+
+function handlePresetChange(selectEl, charsInput) {
+    const value = selectEl.value;
+    let chars;
+    if (isCustomPreset(value)) {
+        // Custom presets: use as-saved (user's intentional order)
+        const name = getPresetName(value);
+        const presets = getCustomPresets();
+        chars = presets[name] || CHAR_SETS.standard;
+    } else {
+        // Built-in presets: auto-sort for current font
+        const baseChars = CHAR_SETS[value] || CHAR_SETS.standard;
+        chars = sortAndOptimizeChars(baseChars, 0, fontFamily.value);
+    }
+    charsInput.value = chars;
+    updateDeleteButtonVisibility();
+    if (currentImage) convertToAscii();
+}
+
+// Legacy character persistence (for backwards compatibility)
+function loadSavedChars() {
+    const savedCustom = localStorage.getItem('ascii-custom-chars');
+    if (savedCustom) customChars.value = savedCustom;
+    populateCustomPresets();
+    updateDeleteButtonVisibility();
+}
+
+// Debounced conversion for smooth slider dragging (adaptive delay)
+const debouncedConvert = adaptiveDebounce(() => {
+    if (currentImage) convertToAscii();
+});
+
+function setupEventListeners() {
+    // Drop zone
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', handleDragOver);
+    dropZone.addEventListener('dragleave', handleDragLeave);
+    dropZone.addEventListener('drop', handleDrop);
+    fileInput.addEventListener('change', handleFileSelect);
+
+    // URL loading
+    loadUrlBtn.addEventListener('click', loadFromUrl);
+    urlInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') loadFromUrl();
+    });
+
+    // Video controls
+    videoPlayBtn.addEventListener('click', playVideo);
+    videoPauseBtn.addEventListener('click', pauseVideo);
+    videoStopBtn.addEventListener('click', () => {
+        stopVideo();
+        // Keep video mode but stop playback and seek to start
+        if (videoPreview.src) {
+            isVideoMode = true;
+            currentVideo = videoPreview;
+            videoControls.style.display = 'block';
+            videoPreview.style.display = 'block';
+            gifExportControls.style.display = 'flex';
+            videoPreview.currentTime = 0;
+            updateVideoTime();
+        }
+    });
+    videoSeek.addEventListener('input', () => {
+        seekVideo(parseInt(videoSeek.value));
+    });
+    videoPreview.addEventListener('ended', () => {
+        if (videoLoop.checked) {
+            // Loop: restart from beginning
+            currentVideo.currentTime = 0;
+            videoSeek.value = 0;
+            updateVideoTime();
+        } else {
+            pauseVideo();
+            videoSeek.value = videoSeek.max;
+            updateVideoTime();
+        }
+    });
+    videoLoop.addEventListener('change', () => {
+        if (currentVideo) {
+            currentVideo.loop = videoLoop.checked;
+        }
+    });
+    downloadGifBtn.addEventListener('click', () => {
+        if (isRecordingGif) {
+            stopGifRecording(true);
+        } else {
+            startGifRecording();
+        }
+    });
+    downloadVideoBtn.addEventListener('click', () => {
+        if (isRecordingVideo) {
+            stopVideoRecording();
+        } else {
+            startVideoRecording();
+        }
+    });
+
+    // Video preferences button
+    videoPreferencesBtn.addEventListener('click', showVideoSettingsModal);
+
+    // Video settings modal handlers
+    modalClose.addEventListener('click', hideVideoSettingsModal);
+    modalCloseSave.addEventListener('click', () => {
+        // Save settings from modal
+        videoSettings.format = videoFormatSelect.value;
+        videoSettings.quality = videoQualitySelect.value;
+        videoSettings.framerate = parseInt(videoFramerateSelect.value);
+        videoSettings.duration = parseInt(videoDurationSelect.value);
+        videoMaxDuration = videoSettings.duration * 1000;
+
+        hideVideoSettingsModal();
+    });
+    videoSettingsModal.addEventListener('click', (e) => {
+        // Close on overlay click
+        if (e.target === videoSettingsModal) {
+            hideVideoSettingsModal();
+        }
+    });
+
+    // Display settings
+    themeSelect.addEventListener('change', () => {
+        applyTheme(themeSelect.value);
+        if (currentImage) convertToAscii();
+    });
+
+    fontFamily.addEventListener('change', () => {
+        updateDisplaySettings();
+        updateCharRatio();
+        if (currentImage) convertToAscii();
+    });
+
+    fontSize.addEventListener('input', () => {
+        fontSizeValue.textContent = fontSize.value;
+        updateDisplaySettings();
+        updateCharRatio();
+        debouncedConvert();
+    });
+
+    charRatio.addEventListener('input', () => {
+        charRatioValue.textContent = charRatio.value;
+        if (!autoRatio.checked) debouncedConvert();
+    });
+
+    autoRatio.addEventListener('change', () => {
+        charRatio.disabled = autoRatio.checked;
+        if (autoRatio.checked) {
+            updateCharRatio();
+            if (currentImage) convertToAscii();
+        }
+    });
+
+    // Conversion settings
+    charsPerRow.addEventListener('input', () => {
+        charsValue.textContent = charsPerRow.value;
+        debouncedConvert();
+    });
+
+    algorithm.addEventListener('change', () => {
+        updateAlgorithmPanel();
+        if (currentImage) convertToAscii();
+    });
+
+    // Brightness settings
+    charSet.addEventListener('change', () => handlePresetChange(charSet, customChars));
+    customChars.addEventListener('input', () => { if (currentImage) convertToAscii(); });
+    sortCharsBtn.addEventListener('click', () => {
+        const count = parseInt(reduceCount.value) || 0;
+        customChars.value = sortAndOptimizeChars(customChars.value, count, fontFamily.value);
+        if (currentImage) convertToAscii();
+    });
+    saveCharsBtn.addEventListener('click', () => handleSavePreset(customChars, charSet));
+    deleteCharsBtn.addEventListener('click', () => handleDeletePreset(charSet, customChars));
+
+    // Edge settings
+    edgeThreshold.addEventListener('input', () => {
+        edgeThresholdValue.textContent = edgeThreshold.value;
+        debouncedConvert();
+    });
+
+    // Dithering settings
+    ditherStrength.addEventListener('input', () => {
+        ditherStrengthValue.textContent = ditherStrength.value;
+        debouncedConvert();
+    });
+
+    // Pattern settings
+    patternBlockSize.addEventListener('change', () => { if (currentImage) convertToAscii(); });
+    patternChars.addEventListener('input', () => { if (currentImage) convertToAscii(); });
+
+    // Output settings (global)
+    invertBrightness.addEventListener('change', () => { if (currentImage) convertToAscii(); });
+    contrastAmount.addEventListener('input', () => {
+        contrastAmountValue.textContent = contrastAmount.value;
+        debouncedConvert();
+    });
+    contrastHistogram.addEventListener('change', () => { if (currentImage) convertToAscii(); });
+    colorMode.addEventListener('change', () => {
+        const isMono = colorMode.value === 'monochrome';
+        monoSettings.style.display = isMono ? 'block' : 'none';
+        colorSliders.forEach(el => el.classList.toggle('disabled', isMono));
+        cachedPalette = null; // Clear palette cache
+        if (currentImage) convertToAscii();
+    });
+    brightnessBlend.addEventListener('input', () => {
+        brightnessBlendValue.textContent = brightnessBlend.value;
+        debouncedConvert();
+    });
+    colorSaturation.addEventListener('input', () => {
+        colorSaturationValue.textContent = colorSaturation.value;
+        debouncedConvert();
+    });
+    globalOpacity.addEventListener('input', () => {
+        globalOpacityValue.textContent = globalOpacity.value;
+        debouncedConvert();
+    });
+    brightnessOpacity.addEventListener('change', () => {
+        if (currentImage) convertToAscii();
+    });
+    monoFg.addEventListener('input', debouncedConvert);
+    monoBg.addEventListener('input', debouncedConvert);
+
+    // Copy buttons
+    copyTextBtn.addEventListener('click', copyAsText);
+    copyHtmlBtn.addEventListener('click', copyAsHtml);
+    copyMarkdownBtn.addEventListener('click', copyAsMarkdown);
+    downloadPngBtn.addEventListener('click', downloadAsPng);
+
+    // Settings presets
+    settingsPreset.addEventListener('change', handleSettingsPresetChange);
+    saveSettingsPresetBtn.addEventListener('click', () => {
+        const name = prompt('Enter a name for this preset:');
+        if (name && name.trim()) {
+            saveCurrentAsPreset(name.trim());
+        }
+    });
+    deleteSettingsPresetBtn.addEventListener('click', () => {
+        const value = settingsPreset.value;
+        if (value.startsWith('custom:')) {
+            const name = value.substring(7);
+            if (confirm(`Delete preset "${name}"?`)) {
+                deleteSettingsPreset(name);
+            }
+        }
+    });
+}
+
+// Get current settings as an object
+function getCurrentSettings() {
+    return {
+        // Display
+        theme: themeSelect.value,
+        charsPerRow: parseInt(charsPerRow.value),
+        fontSize: parseInt(fontSize.value),
+        autoRatio: autoRatio.checked,
+        charRatio: parseFloat(charRatio.value),
+        // Algorithm
+        algorithm: algorithm.value,
+        charSetPreset: charSet.value,
+        customChars: customChars.value,
+        ditherStrength: parseInt(ditherStrength.value),
+        edgeThreshold: parseInt(edgeThreshold.value),
+        patternBlockSize: patternBlockSize.value,
+        patternChars: patternChars.value,
+        // Output
+        colorMode: colorMode.value,
+        invertBrightness: invertBrightness.checked,
+        histogramEq: contrastHistogram.checked,
+        contrast: parseInt(contrastAmount.value),
+        brightnessBlend: parseInt(brightnessBlend.value),
+        saturation: parseInt(colorSaturation.value),
+        opacity: parseInt(globalOpacity.value),
+        brightnessAsOpacity: brightnessOpacity.checked,
+        monoFg: monoFg.value,
+        monoBg: monoBg.value
+    };
+}
+
+// Apply settings from an object
+function applySettings(settings, skipConvert = false) {
+    // Display settings
+    if (settings.theme !== undefined) {
+        themeSelect.value = settings.theme;
+        applyTheme(settings.theme);
+    }
+    if (settings.charsPerRow !== undefined) {
+        charsPerRow.value = settings.charsPerRow;
+    }
+    if (settings.fontSize !== undefined) {
+        fontSize.value = settings.fontSize;
+    }
+    if (settings.autoRatio !== undefined) {
+        autoRatio.checked = settings.autoRatio;
+        charRatio.disabled = settings.autoRatio;
+    }
+    if (settings.charRatio !== undefined && !settings.autoRatio) {
+        charRatio.value = settings.charRatio;
+    }
+
+    // Algorithm settings
+    if (settings.algorithm !== undefined) {
+        algorithm.value = settings.algorithm;
+    }
+    if (settings.charSetPreset !== undefined) {
+        charSet.value = settings.charSetPreset;
+    }
+    if (settings.customChars !== undefined) {
+        // Sort for current font if it's a built-in preset
+        if (settings.charSetPreset && !isCustomPreset(settings.charSetPreset)) {
+            customChars.value = sortAndOptimizeChars(settings.customChars, 0, fontFamily.value);
+        } else {
+            customChars.value = settings.customChars;
+        }
+    }
+    if (settings.ditherStrength !== undefined) {
+        ditherStrength.value = settings.ditherStrength;
+    }
+    if (settings.edgeThreshold !== undefined) {
+        edgeThreshold.value = settings.edgeThreshold;
+    }
+    if (settings.patternBlockSize !== undefined) {
+        patternBlockSize.value = settings.patternBlockSize;
+    }
+    if (settings.patternChars !== undefined) {
+        patternChars.value = settings.patternChars;
+    }
+
+    // Output settings
+    if (settings.colorMode !== undefined) {
+        colorMode.value = settings.colorMode;
+    }
+    if (settings.invertBrightness !== undefined) {
+        invertBrightness.checked = settings.invertBrightness;
+    }
+    if (settings.histogramEq !== undefined) {
+        contrastHistogram.checked = settings.histogramEq;
+    }
+    if (settings.contrast !== undefined) {
+        contrastAmount.value = settings.contrast;
+    }
+    if (settings.brightnessBlend !== undefined) {
+        brightnessBlend.value = settings.brightnessBlend;
+    }
+    if (settings.saturation !== undefined) {
+        colorSaturation.value = settings.saturation;
+    }
+    if (settings.opacity !== undefined) {
+        globalOpacity.value = settings.opacity;
+    }
+    if (settings.brightnessAsOpacity !== undefined) {
+        brightnessOpacity.checked = settings.brightnessAsOpacity;
+    }
+    if (settings.monoFg !== undefined) {
+        monoFg.value = settings.monoFg;
+    }
+    if (settings.monoBg !== undefined) {
+        monoBg.value = settings.monoBg;
+    }
+
+    // Update all UI state
+    updateDisplaySettings();
+    if (settings.autoRatio) {
+        updateCharRatio();
+    } else {
+        charRatioValue.textContent = charRatio.value;
+    }
+    updateAlgorithmPanel();
+    initColorModeVisibility();
+    initSliderValues();
+    updateDeleteButtonVisibility();
+    cachedPalette = null; // Clear palette cache
+
+    // Re-convert if image loaded
+    if (!skipConvert && currentImage) {
+        convertToAscii();
+    }
+}
+
+// Settings presets localStorage management
+function getCustomSettingsPresets() {
+    return JSON.parse(localStorage.getItem('ascii-settings-presets') || '{}');
+}
+
+function saveCustomSettingsPresets(presets) {
+    localStorage.setItem('ascii-settings-presets', JSON.stringify(presets));
+}
+
+function saveCurrentAsPreset(name) {
+    const presets = getCustomSettingsPresets();
+    presets[name] = getCurrentSettings();
+    saveCustomSettingsPresets(presets);
+    populateSettingsPresetDropdown();
+    settingsPreset.value = 'custom:' + name;
+    updateSettingsDeleteButtonVisibility();
+    showToast(`Preset "${name}" saved`);
+}
+
+function deleteSettingsPreset(name) {
+    const presets = getCustomSettingsPresets();
+    delete presets[name];
+    saveCustomSettingsPresets(presets);
+    populateSettingsPresetDropdown();
+    settingsPreset.value = 'default';
+    updateSettingsDeleteButtonVisibility();
+    showToast(`Preset "${name}" deleted`);
+}
+
+function populateSettingsPresetDropdown() {
+    const customPresets = getCustomSettingsPresets();
+
+    // Clear and rebuild
+    settingsPreset.innerHTML = '';
+
+    // Built-in presets
+    const builtInGroup = document.createElement('optgroup');
+    builtInGroup.label = 'Built-in';
+    for (const [key, preset] of Object.entries(SETTINGS_PRESETS)) {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = preset.name;
+        builtInGroup.appendChild(option);
+    }
+    settingsPreset.appendChild(builtInGroup);
+
+    // Custom presets
+    const customKeys = Object.keys(customPresets);
+    if (customKeys.length > 0) {
+        const customGroup = document.createElement('optgroup');
+        customGroup.label = 'Custom';
+        for (const name of customKeys) {
+            const option = document.createElement('option');
+            option.value = 'custom:' + name;
+            option.textContent = name;
+            customGroup.appendChild(option);
+        }
+        settingsPreset.appendChild(customGroup);
+    }
+}
+
+function updateSettingsDeleteButtonVisibility() {
+    const isCustom = settingsPreset.value.startsWith('custom:');
+    deleteSettingsPresetBtn.style.display = isCustom ? 'inline-block' : 'none';
+}
+
+function handleSettingsPresetChange() {
+    const value = settingsPreset.value;
+    if (value.startsWith('custom:')) {
+        const name = value.substring(7);
+        const presets = getCustomSettingsPresets();
+        if (presets[name]) {
+            applySettings(presets[name]);
+        }
+    } else if (SETTINGS_PRESETS[value]) {
+        applySettings(SETTINGS_PRESETS[value].settings);
+    }
+    updateSettingsDeleteButtonVisibility();
+}
+
+function updateDisplaySettings() {
+    asciiOutput.style.fontFamily = fontFamily.value;
+    asciiOutput.style.fontSize = fontSize.value + 'px';
+    asciiOutput.style.lineHeight = '1';
+}
+
+function updateCharRatio() {
+    if (!autoRatio.checked) return;
+
+    const measured = measureCharCell();
+    cachedCharRatio = measured.width / measured.height;
+    // Round to 1 decimal for slider compatibility
+    charRatio.value = cachedCharRatio.toFixed(1);
+    charRatioValue.textContent = cachedCharRatio.toFixed(1);
+}
+
+function updateAlgorithmPanel() {
+    const algo = algorithm.value;
+    document.querySelectorAll('.algo-settings-panel').forEach(panel => {
+        panel.classList.remove('active');
+    });
+
+    // Character set is shared by brightness and dithering
+    if (algo === 'brightness' || algo === 'dithering') {
+        document.getElementById('settings-charset').classList.add('active');
+    }
+
+    // Algorithm-specific panels
+    if (algo === 'dithering') {
+        document.getElementById('settings-dithering').classList.add('active');
+    } else if (algo === 'edge') {
+        document.getElementById('settings-edge').classList.add('active');
+    } else if (algo === 'pattern') {
+        document.getElementById('settings-pattern').classList.add('active');
+    }
+}
+
+// Drag and drop handlers
+function handleDragOver(e) {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        const file = files[0];
+        if (file.type.startsWith('video/')) {
+            loadVideoFile(file);
+        } else if (file.type.startsWith('image/')) {
+            loadImageFile(file);
+        }
+    }
+}
+
+function handleFileSelect(e) {
+    const files = e.target.files;
+    if (files.length > 0) {
+        const file = files[0];
+        if (file.type.startsWith('video/')) {
+            loadVideoFile(file);
+        } else {
+            loadImageFile(file);
+        }
+    }
+}
+
+// Image loading
+function loadImageFile(file) {
+    stopVideo();
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        loadImage(e.target.result);
+    };
+    reader.readAsDataURL(file);
+}
+
+// Video loading
+function loadVideoFile(file) {
+    stopVideo();
+    const url = URL.createObjectURL(file);
+    loadVideo(url);
+}
+
+function loadVideo(src) {
+    showLoading(true);
+    placeholder.style.display = 'none';
+
+    videoPreview.src = src;
+    videoPreview.load();
+
+    videoPreview.onloadedmetadata = () => {
+        isVideoMode = true;
+        currentVideo = videoPreview;
+        currentImage = null;
+
+        // Show video preview, hide image preview
+        imagePreview.style.display = 'none';
+        videoPreview.style.display = 'block';
+        noPreview.style.display = 'none';
+        videoControls.style.display = 'block';
+        gifExportControls.style.display = 'flex';
+
+        // Update seek bar max
+        videoSeek.max = Math.floor(videoPreview.duration);
+        updateVideoTime();
+
+        // Show first frame
+        videoPreview.currentTime = 0;
+    };
+
+    videoPreview.onseeked = () => {
+        if (!isVideoPlaying) {
+            convertVideoFrame();
+        }
+    };
+
+    videoPreview.oncanplay = () => {
+        showLoading(false);
+        if (!isVideoPlaying) {
+            convertVideoFrame();
+        }
+    };
+
+    videoPreview.onerror = () => {
+        showLoading(false);
+        showToast('Failed to load video. Try a different file.');
+        isVideoMode = false;
+        placeholder.style.display = 'block';
+    };
+}
+
+function convertVideoFrame() {
+    if (!currentVideo) return;
+
+    // Create video frame proxy that works with drawImage and has width/height
+    // This avoids creating new canvas/image objects every frame
+    const videoProxy = {
+        width: currentVideo.videoWidth,
+        height: currentVideo.videoHeight,
+        // Used by drawImage - we draw from the video element directly
+        _source: currentVideo
+    };
+
+    // Store as currentImage for conversion (conversion will use this with drawImage)
+    currentImage = videoProxy;
+    cachedPalette = null;
+    convertToAscii();
+}
+
+function videoPlaybackLoop(timestamp) {
+    if (!isVideoPlaying) return;
+
+    // Calculate FPS
+    frameCount++;
+    if (timestamp - fpsUpdateTime >= 1000) {
+        currentFps = frameCount;
+        frameCount = 0;
+        fpsUpdateTime = timestamp;
+        videoFps.textContent = `FPS: ${currentFps}`;
+    }
+
+    // Convert current frame
+    convertVideoFrame();
+
+    // Update seek bar and time
+    videoSeek.value = Math.floor(currentVideo.currentTime);
+    updateVideoTime();
+
+    // Continue loop
+    videoAnimationId = requestAnimationFrame(videoPlaybackLoop);
+}
+
+function playVideo() {
+    if (!currentVideo) return;
+    currentVideo.play();
+    isVideoPlaying = true;
+    videoPlayBtn.style.display = 'none';
+    videoPauseBtn.style.display = '';
+    videoFps.style.display = '';
+    videoFps.textContent = 'FPS: --';
+    frameCount = 0;
+    fpsUpdateTime = performance.now();
+    // Make container unselectable during video playback
+    asciiOutput.parentElement.style.userSelect = 'none';
+    videoAnimationId = requestAnimationFrame(videoPlaybackLoop);
+}
+
+function pauseVideo() {
+    if (!currentVideo) return;
+    currentVideo.pause();
+    isVideoPlaying = false;
+    videoPlayBtn.style.display = '';
+    videoPauseBtn.style.display = 'none';
+    videoFps.style.display = 'none';
+    // Restore selectability when paused
+    asciiOutput.parentElement.style.userSelect = '';
+    if (videoAnimationId) {
+        cancelAnimationFrame(videoAnimationId);
+        videoAnimationId = null;
+    }
+    // Re-render current frame in HTML mode for copy/paste support
+    convertToAscii();
+}
+
+function stopVideo() {
+    if (currentVideo) {
+        currentVideo.pause();
+        currentVideo.currentTime = 0;
+    }
+    isVideoPlaying = false;
+    isVideoMode = false;
+    currentVideo = null;
+    videoPlayBtn.style.display = '';
+    videoPauseBtn.style.display = 'none';
+    // Restore selectability when stopped
+    asciiOutput.parentElement.style.userSelect = '';
+    if (videoAnimationId) {
+        cancelAnimationFrame(videoAnimationId);
+        videoAnimationId = null;
+    }
+    // Stop any GIF/video recording and clear frames
+    if (isRecordingGif) {
+        stopGifRecording(false);
+    }
+    if (isRecordingVideo) {
+        stopVideoRecording();
+    }
+    gifFrames = [];
+    videoFps.style.display = 'none';
+    videoControls.style.display = 'none';
+    videoPreview.style.display = 'none';
+    gifExportControls.style.display = 'none';
+    // Switch back to HTML mode
+    setCanvasMode(false);
+}
+
+function seekVideo(time) {
+    if (!currentVideo) return;
+    currentVideo.currentTime = time;
+    updateVideoTime();
+}
+
+function updateVideoTime() {
+    if (!currentVideo) return;
+    const current = formatTime(currentVideo.currentTime);
+    const duration = formatTime(currentVideo.duration);
+    videoTime.textContent = `${current} / ${duration}`;
+}
+
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// GIF Recording
+function startGifRecording() {
+    if (!isVideoMode || !currentVideo) {
+        showToast('Load a video first');
+        return;
+    }
+
+    isRecordingGif = true;
+    gifFrames = [];
+    gifStartTime = performance.now();
+
+    downloadGifBtn.textContent = '⏹ Stop Recording';
+    downloadGifBtn.classList.add('recording');
+    gifStatus.textContent = 'Recording...';
+
+    // Start video playback if not playing
+    if (!isVideoPlaying) {
+        playVideo();
+    }
+
+    // Start capturing frames
+    captureGifFrameLoop();
+}
+
+let lastGifFrameTime = 0;
+function captureGifFrameLoop() {
+    if (!isRecordingGif) return;
+
+    const now = performance.now();
+    const elapsed = now - gifStartTime;
+
+    // Check duration limit
+    if (elapsed >= GIF_MAX_DURATION) {
+        stopGifRecording(true);
+        return;
+    }
+
+    // Capture frame at interval
+    if (now - lastGifFrameTime >= GIF_FRAME_INTERVAL) {
+        captureGifFrame();
+        lastGifFrameTime = now;
+        gifStatus.textContent = `Recording... ${(elapsed / 1000).toFixed(1)}s`;
+    }
+
+    requestAnimationFrame(captureGifFrameLoop);
+}
+
+function captureGifFrame() {
+    // If using canvas mode, just copy the canvas directly
+    if (asciiCanvas.style.display !== 'none' && asciiCanvas.width > 0) {
+        const canvas = document.createElement('canvas');
+        canvas.width = asciiCanvas.width;
+        canvas.height = asciiCanvas.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(asciiCanvas, 0, 0);
+        gifFrames.push(canvas);
+        return;
+    }
+
+    // HTML mode: render from DOM
+    // Get computed styles
+    const styles = window.getComputedStyle(asciiOutput);
+    const fontSizeVal = parseFloat(styles.fontSize);
+    const lineHeight = parseFloat(styles.lineHeight) || fontSizeVal * 1.2;
+    const fontFamilyVal = styles.fontFamily;
+
+    // Calculate actual content size based on ASCII dimensions
+    const text = asciiOutput.textContent;
+    const lines = text.split('\n');
+    const numLines = lines.length;
+    const maxLineLength = Math.max(...lines.map(l => l.length));
+
+    // Create measuring canvas to get accurate character width
+    const measureCanvas = document.createElement('canvas');
+    const measureCtx = measureCanvas.getContext('2d');
+    measureCtx.font = `${fontSizeVal}px ${fontFamilyVal}`;
+    const charWidth = measureCtx.measureText('M').width; // Use monospace char width
+
+    // Calculate canvas size based on content, not container
+    const contentWidth = Math.ceil(maxLineLength * charWidth);
+    const contentHeight = Math.ceil(numLines * lineHeight);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = contentWidth;
+    canvas.height = contentHeight;
+
+    const ctx = canvas.getContext('2d');
+
+    // Draw background
+    const bgColor = isDarkMode() ? '#0d0d0d' : '#ffffff';
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.font = `${fontSizeVal}px ${fontFamilyVal}`;
+    ctx.textBaseline = 'top';
+
+    // Render the ASCII content
+    const isMono = colorMode.value === 'monochrome';
+    if (isMono) {
+        ctx.fillStyle = monoFg.value;
+        lines.forEach((line, i) => {
+            ctx.fillText(line, 0, i * lineHeight);
+        });
+    } else {
+        // For colored output, render each span
+        const spans = asciiOutput.querySelectorAll('span');
+        if (spans.length > 0) {
+            let x = 0, y = 0;
+            spans.forEach(span => {
+                const spanText = span.textContent;
+                const color = span.style.color || styles.color;
+                ctx.fillStyle = color;
+
+                for (const char of spanText) {
+                    if (char === '\n') {
+                        x = 0;
+                        y += lineHeight;
+                    } else {
+                        ctx.fillText(char, x, y);
+                        x += ctx.measureText(char).width;
+                    }
+                }
+            });
+        }
+    }
+
+    gifFrames.push(canvas);
+}
+
+function stopGifRecording(encode) {
+    isRecordingGif = false;
+    downloadGifBtn.textContent = 'Record GIF';
+    downloadGifBtn.classList.remove('recording');
+
+    if (!encode || gifFrames.length === 0) {
+        gifStatus.textContent = '';
+        gifFrames = [];
+        return;
+    }
+
+    gifStatus.textContent = `Encoding ${gifFrames.length} frames...`;
+
+    // Encode GIF using gif.js
+    const gif = new GIF({
+        workers: 2,
+        quality: 10,
+        width: gifFrames[0].width,
+        height: gifFrames[0].height,
+        workerScript: 'gif.worker.js'
+    });
+
+    gifFrames.forEach(canvas => {
+        gif.addFrame(canvas, { delay: GIF_FRAME_INTERVAL });
+    });
+
+    gif.on('finished', blob => {
+        // Download the GIF
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'ascii-animation.gif';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        gifStatus.textContent = '';
+        gifFrames = [];
+        showToast('GIF downloaded!');
+    });
+
+    gif.on('progress', p => {
+        gifStatus.textContent = `Encoding... ${Math.round(p * 100)}%`;
+    });
+
+    gif.render();
+}
+
+// Video Settings Modal
+function showVideoSettingsModal() {
+    // Update format options based on browser support
+    updateFormatOptions();
+
+    videoSettingsModal.classList.add('show');
+}
+
+function hideVideoSettingsModal() {
+    videoSettingsModal.classList.remove('show');
+}
+
+function updateFormatOptions() {
+    // Check which formats are supported
+    const formats = [
+        { value: 'webm-vp9', mime: 'video/webm;codecs=vp9', label: 'WebM (VP9) - Best quality' },
+        { value: 'webm-vp8', mime: 'video/webm;codecs=vp8', label: 'WebM (VP8) - Compatible' },
+        { value: 'mp4', mime: 'video/mp4', label: 'MP4 (H.264) - Safari' }
+    ];
+
+    videoFormatSelect.innerHTML = '';
+    let firstSupported = null;
+
+    for (const format of formats) {
+        const supported = MediaRecorder.isTypeSupported(format.mime);
+        const option = document.createElement('option');
+        option.value = format.value;
+        option.textContent = format.label + (supported ? '' : ' (not supported)');
+        option.disabled = !supported;
+        videoFormatSelect.appendChild(option);
+
+        if (supported && !firstSupported) {
+            firstSupported = format.value;
+        }
+    }
+
+    // Restore previously selected format if supported, otherwise select first supported
+    const savedFormat = videoSettings.format;
+    const savedOption = videoFormatSelect.querySelector(`option[value="${savedFormat}"]`);
+    if (savedOption && !savedOption.disabled) {
+        videoFormatSelect.value = savedFormat;
+    } else if (firstSupported) {
+        videoFormatSelect.value = firstSupported;
+    }
+}
+
+// Video Recording (MediaRecorder API)
+function startVideoRecording() {
+    if (!isVideoPlaying) {
+        showToast('Play the video first to record');
+        return;
+    }
+
+    // Check if canvas mode is active
+    if (asciiCanvas.style.display === 'none' || asciiCanvas.width === 0) {
+        showToast('Canvas not ready for recording');
+        return;
+    }
+
+    // Get canvas stream with selected framerate
+    const stream = asciiCanvas.captureStream(videoSettings.framerate);
+
+    // Determine MIME type based on settings
+    const formatMimeMap = {
+        'webm-vp9': 'video/webm;codecs=vp9',
+        'webm-vp8': 'video/webm;codecs=vp8',
+        'mp4': 'video/mp4'
+    };
+    let mimeType = formatMimeMap[videoSettings.format];
+
+    // Fallback if selected format not supported
+    if (!MediaRecorder.isTypeSupported(mimeType)) {
+        const fallbacks = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
+        mimeType = fallbacks.find(m => MediaRecorder.isTypeSupported(m)) || '';
+    }
+
+    if (!mimeType) {
+        showToast('Video recording not supported in this browser');
+        return;
+    }
+
+    // Determine bitrate based on quality setting
+    const qualityBitrateMap = {
+        'high': 8000000,    // 8 Mbps
+        'medium': 5000000,  // 5 Mbps
+        'low': 2000000      // 2 Mbps
+    };
+    const bitrate = qualityBitrateMap[videoSettings.quality] || 5000000;
+
+    try {
+        videoChunks = [];
+        mediaRecorder = new MediaRecorder(stream, {
+            mimeType,
+            videoBitsPerSecond: bitrate
+        });
+
+        mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) {
+                videoChunks.push(e.data);
+            }
+        };
+
+        mediaRecorder.onstop = () => {
+            // Create blob and download
+            const blob = new Blob(videoChunks, { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ascii-video.${mimeType.includes('mp4') ? 'mp4' : 'webm'}`;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            gifStatus.textContent = '';
+            videoChunks = [];
+            showToast('Video downloaded!');
+        };
+
+        mediaRecorder.start(100); // Collect data every 100ms
+        isRecordingVideo = true;
+        videoStartTime = performance.now();
+        downloadVideoBtn.textContent = '⏹ Stop';
+        downloadVideoBtn.classList.add('recording');
+        gifStatus.textContent = 'Recording video...';
+
+        // Auto-stop after max duration
+        requestAnimationFrame(videoRecordingLoop);
+    } catch (e) {
+        console.error('Failed to start video recording:', e);
+        showToast('Failed to start recording');
+    }
+}
+
+function videoRecordingLoop() {
+    if (!isRecordingVideo) return;
+
+    const elapsed = performance.now() - videoStartTime;
+    gifStatus.textContent = `Recording... ${(elapsed / 1000).toFixed(1)}s`;
+
+    if (elapsed >= videoMaxDuration || !isVideoPlaying) {
+        stopVideoRecording();
+        return;
+    }
+
+    requestAnimationFrame(videoRecordingLoop);
+}
+
+function stopVideoRecording() {
+    if (!isRecordingVideo || !mediaRecorder) return;
+
+    isRecordingVideo = false;
+    downloadVideoBtn.textContent = 'Record Video';
+    downloadVideoBtn.classList.remove('recording');
+
+    if (mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+    }
+    mediaRecorder = null;
+}
+
+function loadFromUrl() {
+    const url = urlInput.value.trim();
+    if (!url) {
+        showToast('Please enter an image URL');
+        return;
+    }
+    loadImage(url);
+}
+
+function loadDefaultImage() {
+    loadImage('default_image.jpg');
+}
+
+function loadImage(src) {
+    stopVideo();
+    showLoading(true);
+    placeholder.style.display = 'none';
+
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+
+    img.onload = () => {
+        currentImage = img;
+        currentVideo = null;
+        isVideoMode = false;
+        cachedPalette = null; // Clear palette cache for new image
+        if (asciiWorker) asciiWorker.postMessage({ type: 'clearCache' });
+        showPreview(src);
+        convertToAscii();
+    };
+
+    img.onerror = () => {
+        showLoading(false);
+        showToast('Failed to load image. Try a different source.');
+        if (!currentImage) {
+            placeholder.style.display = 'block';
+        }
+    };
+
+    img.src = src;
+}
+
+function showPreview(src) {
+    imagePreview.src = src;
+    imagePreview.style.display = 'block';
+    videoPreview.style.display = 'none';
+    videoControls.style.display = 'none';
+    gifExportControls.style.display = 'none';
+    noPreview.style.display = 'none';
+}
+
+function showLoading(show) {
+    loading.classList.toggle('show', show);
+}
+
+// Measure character cell dimensions
+function measureCharCell() {
+    const span = document.createElement('span');
+    span.style.fontFamily = fontFamily.value;
+    span.style.fontSize = fontSize.value + 'px';
+    span.style.lineHeight = '1';
+    span.style.letterSpacing = '0';
+    span.style.position = 'absolute';
+    span.style.visibility = 'hidden';
+    span.textContent = '@';
+    document.body.appendChild(span);
+    const rect = span.getBoundingClientRect();
+    document.body.removeChild(span);
+    return { width: rect.width, height: rect.height };
+}
+
+function getCharRatio() {
+    if (autoRatio.checked) {
+        return cachedCharRatio || 0.5;
+    }
+    return parseFloat(charRatio.value) || 0.5;
+}
+
+// Render ASCII to canvas (fast, no DOM overhead)
+function renderToCanvas(ascii, colorData, width, height) {
+    const mode = colorMode.value;
+    const font = fontFamily.value;
+    const size = parseInt(fontSize.value);
+    const ratio = getCharRatio();
+
+    // Calculate character dimensions
+    const charWidth = size * ratio;
+    const charHeight = size;
+
+    // Size canvas
+    const canvasWidth = Math.ceil(width * charWidth);
+    const canvasHeight = height * charHeight;
+
+    if (asciiCanvas.width !== canvasWidth || asciiCanvas.height !== canvasHeight) {
+        asciiCanvas.width = canvasWidth;
+        asciiCanvas.height = canvasHeight;
+    }
+
+    // Set up context
+    asciiCanvasCtx.font = `${size}px ${font}`;
+    asciiCanvasCtx.textBaseline = 'top';
+
+    // Clear with background color
+    if (mode === 'monochrome') {
+        asciiCanvasCtx.fillStyle = monoBg.value;
+    } else {
+        asciiCanvasCtx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg-primary').trim() || '#1a1a2e';
+    }
+    asciiCanvasCtx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    // Get monochrome foreground color if needed
+    const fg = monoFg.value;
+    const fgR = parseInt(fg.slice(1, 3), 16);
+    const fgG = parseInt(fg.slice(3, 5), 16);
+    const fgB = parseInt(fg.slice(5, 7), 16);
+
+    // Render characters
+    let lineStart = 0;
+    for (let y = 0; y < height; y++) {
+        const py = y * charHeight;
+
+        for (let x = 0; x < width; x++) {
+            const idx = y * width + x;
+            const charCode = ascii.charCodeAt(lineStart + x);
+            if (charCode === 10 || isNaN(charCode)) continue;
+
+            const char = String.fromCharCode(charCode);
+            const px = x * charWidth;
+
+            // Set color
+            if (colorData && colorData.colorR) {
+                // Full color mode
+                const r = colorData.colorR[idx];
+                const g = colorData.colorG[idx];
+                const b = colorData.colorB[idx];
+                const a = colorData.opacities[idx];
+                asciiCanvasCtx.fillStyle = `rgba(${r},${g},${b},${a.toFixed(2)})`;
+            } else if (colorData && colorData.opacities) {
+                // Monochrome with brightness opacity
+                const a = colorData.opacities[idx];
+                asciiCanvasCtx.fillStyle = `rgba(${fgR},${fgG},${fgB},${a.toFixed(2)})`;
+            } else {
+                // Plain monochrome
+                const baseOpacity = parseInt(globalOpacity.value) / 100;
+                asciiCanvasCtx.fillStyle = `rgba(${fgR},${fgG},${fgB},${baseOpacity})`;
+            }
+
+            asciiCanvasCtx.fillText(char, px, py);
+        }
+        lineStart += width + 1; // +1 for newline
+    }
+}
+
+// Show/hide canvas vs HTML output
+function setCanvasMode(enabled) {
+    if (enabled) {
+        asciiOutput.style.display = 'none';
+        asciiCanvas.style.display = 'block';
+    } else {
+        asciiOutput.style.display = '';
+        asciiCanvas.style.display = 'none';
+    }
+}
+
+// Handle worker response
+function handleWorkerMessage(e) {
+    const { type, ascii, html, colorData, width, height, duration } = e.data;
+
+    if (type === 'result') {
+        workerBusy = false;
+        const asciiContainer = asciiOutput.parentElement;
+        const mode = colorMode.value;
+
+        // Canvas mode (video playback - always use canvas for video)
+        if (isVideoPlaying) {
+            setCanvasMode(true);
+            renderToCanvas(ascii, colorData, width, height);
+            if (mode === 'monochrome') {
+                asciiContainer.style.backgroundColor = monoBg.value;
+            } else {
+                asciiContainer.style.backgroundColor = '';
+            }
+            // Store ASCII for when video pauses
+            lastAscii = ascii;
+            lastWidth = width;
+            lastHeight = height;
+        }
+        // HTML mode (static images with color/opacity)
+        else if (html) {
+            setCanvasMode(false);
+            asciiOutput.innerHTML = html;
+            lastColoredHtml = html;
+            asciiOutput.style.opacity = '';
+            if (mode === 'monochrome') {
+                asciiContainer.style.backgroundColor = monoBg.value;
+            } else {
+                asciiContainer.style.backgroundColor = '';
+            }
+        } else if (mode === 'monochrome') {
+            // Plain monochrome without brightness opacity (static images)
+            setCanvasMode(false);
+            const baseOpacity = parseInt(globalOpacity.value) / 100;
+            asciiContainer.style.backgroundColor = monoBg.value;
+            asciiOutput.style.color = monoFg.value;
+            asciiOutput.style.opacity = baseOpacity < 1 ? baseOpacity : '';
+            asciiOutput.innerHTML = '';
+            asciiOutput.textContent = ascii;
+            lastColoredHtml = '';
+        }
+
+        lastConversionTime = duration;
+        outputInfo.textContent = `${width} × ${height} chars`;
+
+        if (!isVideoPlaying) {
+            showLoading(false);
+        }
+
+        // Process pending conversion if any
+        if (pendingConversion) {
+            pendingConversion = false;
+            convertToAscii();
+        }
+    }
+}
+
+// Store last frame data for re-rendering when video pauses
+let lastAscii = '';
+let lastWidth = 0;
+let lastHeight = 0;
+
+// ASCII conversion dispatcher
+function convertToAscii() {
+    if (!currentImage) return;
+
+    const algo = algorithm.value;
+    const mode = colorMode.value;
+    const width = parseInt(charsPerRow.value);
+
+    // Use worker for brightness algorithm (most common case)
+    // Fall back to main thread for other algorithms or if worker unavailable
+    const canUseWorker = asciiWorker && algo === 'brightness';
+
+    if (canUseWorker) {
+        // If worker is busy, mark pending and return
+        if (workerBusy) {
+            pendingConversion = true;
+            return;
+        }
+
+        workerBusy = true;
+
+        // Don't show loading spinner during video playback
+        if (!isVideoPlaying) {
+            showLoading(true);
+        }
+
+        // Get image data
+        const { imageData, height } = getScaledImageData(currentImage, width);
+        const pixels = imageData.data;
+
+        // Prepare settings for worker
+        const fg = monoFg.value;
+        const settings = {
+            chars: customChars.value || '@%#*+=-:. ',
+            invert: invertBrightness.checked,
+            contrast: parseInt(contrastAmount.value) / 100,
+            histogram: contrastHistogram.checked,
+            colorMode: mode,
+            saturation: parseInt(colorSaturation.value) / 100,
+            blend: parseInt(brightnessBlend.value) / 100,
+            baseOpacity: parseInt(globalOpacity.value) / 100,
+            brightnessOpacity: brightnessOpacity.checked,
+            fgR: parseInt(fg.slice(1, 3), 16),
+            fgG: parseInt(fg.slice(3, 5), 16),
+            fgB: parseInt(fg.slice(5, 7), 16)
+        };
+
+        // Send to worker (transfer pixel buffer for zero-copy)
+        // Use canvas mode during video playback for better performance
+        const pixelsCopy = new Uint8ClampedArray(pixels);
+        asciiWorker.postMessage({
+            type: 'convert',
+            pixels: pixelsCopy,
+            width,
+            height,
+            settings,
+            ansi256Palette: ANSI_256,
+            canvasMode: isVideoPlaying
+        }, [pixelsCopy.buffer]);
+
+    } else {
+        // Main thread fallback for non-brightness algorithms
+        convertToAsciiMainThread(algo, mode, width);
+    }
+}
+
+// Main thread conversion (fallback for edge, dithering, pattern)
+function convertToAsciiMainThread(algo, mode, width) {
+    if (!isVideoPlaying) {
+        showLoading(true);
+    }
+
+    setTimeout(() => {
+        const startTime = performance.now();
+
+        let result;
+        switch (algo) {
+            case 'brightness':
+                result = brightnessMapping(currentImage);
+                break;
+            case 'edge':
+                result = edgeDetection(currentImage);
+                break;
+            case 'dithering':
+                result = floydSteinbergDithering(currentImage);
+                break;
+            case 'pattern':
+                result = blockPatternMatching(currentImage);
+                break;
+            default:
+                result = brightnessMapping(currentImage);
+        }
+
+        const asciiContainer = asciiOutput.parentElement;
+        const { imageData } = getScaledImageData(currentImage, result.width);
+        const pixels = imageData.data;
+
+        if (mode !== 'monochrome') {
+            const brightnessData = new Float32Array(result.width * result.height);
+            for (let i = 0; i < brightnessData.length; i++) {
+                const pi = i * 4;
+                brightnessData[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
+            }
+
+            const html = applyColorToAscii(result.ascii, result.width, result.height, pixels, brightnessData);
+            if (html) {
+                asciiOutput.innerHTML = html;
+                lastColoredHtml = html;
+            }
+            asciiOutput.style.opacity = '';
+            asciiContainer.style.backgroundColor = '';
+        } else {
+            const baseOpacity = parseInt(globalOpacity.value) / 100;
+            const useBrightnessOpacity = brightnessOpacity.checked;
+
+            asciiContainer.style.backgroundColor = monoBg.value;
+
+            if (useBrightnessOpacity) {
+                const invert = invertBrightness.checked;
+                const fg = monoFg.value;
+                const fgR = parseInt(fg.slice(1, 3), 16);
+                const fgG = parseInt(fg.slice(3, 5), 16);
+                const fgB = parseInt(fg.slice(5, 7), 16);
+
+                const lines = result.ascii.split('\n');
+                const parts = [];
+                for (let y = 0; y < result.height; y++) {
+                    let currentOpacity = null;
+                    let currentChars = '';
+
+                    for (let x = 0; x < result.width; x++) {
+                        const char = lines[y] ? lines[y][x] : ' ';
+                        if (!char) continue;
+
+                        const pi = (y * result.width + x) * 4;
+                        let brightness = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
+                        if (invert) brightness = 1 - brightness;
+                        const opacity = (baseOpacity * (1 - brightness)).toFixed(2);
+
+                        if (opacity === currentOpacity) {
+                            currentChars += escapeHtml(char);
+                        } else {
+                            if (currentOpacity !== null) {
+                                parts.push(`<span style="color:rgba(${fgR},${fgG},${fgB},${currentOpacity})">${currentChars}</span>`);
+                            }
+                            currentOpacity = opacity;
+                            currentChars = escapeHtml(char);
+                        }
+                    }
+                    if (currentOpacity !== null) {
+                        parts.push(`<span style="color:rgba(${fgR},${fgG},${fgB},${currentOpacity})">${currentChars}</span>`);
+                    }
+                    parts.push('\n');
+                }
+                const html = parts.join('');
+                asciiOutput.innerHTML = html;
+                asciiOutput.style.opacity = '';
+                lastColoredHtml = html;
+            } else {
+                asciiOutput.style.color = monoFg.value;
+                asciiOutput.style.opacity = baseOpacity < 1 ? baseOpacity : '';
+                asciiOutput.innerHTML = '';
+                asciiOutput.textContent = result.ascii;
+                lastColoredHtml = '';
+            }
+        }
+
+        lastConversionTime = performance.now() - startTime;
+        outputInfo.textContent = `${result.width} × ${result.height} chars`;
+
+        if (!isVideoPlaying) {
+            showLoading(false);
+        }
+    }, 10);
+}
+
+// Apply color to ASCII output (pixels passed in to avoid duplicate getScaledImageData)
+// Optimized with Array.join() and span combining for adjacent same-color chars
+function applyColorToAscii(ascii, width, height, pixels, brightnessData) {
+    const mode = colorMode.value;
+
+    // Monochrome mode - just return plain text
+    if (mode === 'monochrome') {
+        return null;
+    }
+    const saturation = parseInt(colorSaturation.value) / 100;
+    const blend = parseInt(brightnessBlend.value) / 100;
+    const baseOpacity = parseInt(globalOpacity.value) / 100;
+    const useBrightnessOpacity = brightnessOpacity.checked;
+    const invert = invertBrightness.checked;
+
+    // Get or build palette
+    let palette = null;
+    if (mode === 'ansi256') {
+        palette = ANSI_256;
+    } else if (mode.startsWith('adaptive')) {
+        const numColors = parseInt(mode.replace('adaptive', ''));
+        // Cache palette for performance (invalidate when saturation changes)
+        if (!cachedPalette || cachedPalette.numColors !== numColors || cachedPalette.saturation !== saturation) {
+            cachedPalette = {
+                numColors,
+                saturation,
+                colors: quantizeColors(pixels, numColors, saturation)
+            };
+        }
+        palette = cachedPalette.colors;
+    }
+
+    const lines = ascii.split('\n');
+    const parts = []; // Use array for O(n) concatenation
+
+    // Helper to get color string
+    function getColorString(r, g, b, opacity) {
+        if (opacity < 1) {
+            return `rgba(${r},${g},${b},${opacity.toFixed(2)})`;
+        }
+        return `rgb(${r},${g},${b})`;
+    }
+
+    for (let y = 0; y < height; y++) {
+        let currentColor = null;
+        let currentChars = '';
+
+        for (let x = 0; x < width; x++) {
+            const char = lines[y] ? lines[y][x] : ' ';
+            if (!char) continue;
+
+            const i = (y * width + x) * 4;
+            let r = pixels[i];
+            let g = pixels[i + 1];
+            let b = pixels[i + 2];
+
+            // Map to palette if not true color
+            if (palette) {
+                const nearest = nearestColor(r, g, b, palette);
+                r = nearest[0];
+                g = nearest[1];
+                b = nearest[2];
+            }
+
+            // Apply saturation
+            if (saturation !== 1) {
+                const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                r = Math.round(gray + saturation * (r - gray));
+                g = Math.round(gray + saturation * (g - gray));
+                b = Math.round(gray + saturation * (b - gray));
+            }
+
+            // Apply brightness blend
+            if (blend !== 0.5 && brightnessData) {
+                const charBrightness = brightnessData[y * width + x];
+                const adjustedBlend = (blend - 0.5) * 2;
+                let factor;
+                if (adjustedBlend >= 0) {
+                    factor = 1 - adjustedBlend * (1 - charBrightness);
+                } else {
+                    factor = 1 + Math.abs(adjustedBlend) * (1 - charBrightness);
+                }
+                r = Math.round(r * factor);
+                g = Math.round(g * factor);
+                b = Math.round(b * factor);
+            }
+
+            // Clamp values
+            r = Math.max(0, Math.min(255, r));
+            g = Math.max(0, Math.min(255, g));
+            b = Math.max(0, Math.min(255, b));
+
+            // Calculate opacity
+            let opacity = baseOpacity;
+            if (useBrightnessOpacity && brightnessData) {
+                let charBrightness = brightnessData[y * width + x];
+                if (invert) {
+                    charBrightness = 1 - charBrightness;
+                }
+                opacity *= (1 - charBrightness);
+            }
+
+            const colorStr = getColorString(r, g, b, opacity);
+
+            // Combine adjacent same-color characters into single span
+            if (colorStr === currentColor) {
+                currentChars += escapeHtml(char);
+            } else {
+                // Flush previous span
+                if (currentColor !== null) {
+                    parts.push(`<span style="color:${currentColor}">${currentChars}</span>`);
+                }
+                currentColor = colorStr;
+                currentChars = escapeHtml(char);
+            }
+        }
+
+        // Flush last span of the line
+        if (currentColor !== null) {
+            parts.push(`<span style="color:${currentColor}">${currentChars}</span>`);
+        }
+        parts.push('\n');
+    }
+
+    return parts.join('');
+}
+
+// Get scaled image data (reuses canvas for performance)
+function getScaledImageData(img, width) {
+    const ratio = getCharRatio();
+    const imgAspect = img.height / img.width;
+    const height = Math.max(1, Math.round(width * imgAspect * ratio));
+
+    // Reuse canvas if possible, create if needed
+    if (!scalingCanvas) {
+        scalingCanvas = document.createElement('canvas');
+        scalingCtx = scalingCanvas.getContext('2d', { willReadFrequently: true });
+    }
+
+    // Resize only if dimensions changed
+    if (scalingCanvas.width !== width || scalingCanvas.height !== height) {
+        scalingCanvas.width = width;
+        scalingCanvas.height = height;
+    }
+
+    // Support video proxy objects with _source property
+    const source = img._source || img;
+    scalingCtx.drawImage(source, 0, 0, width, height);
+
+    return {
+        imageData: scalingCtx.getImageData(0, 0, width, height),
+        width,
+        height
+    };
+}
+
+// Algorithm: Brightness Mapping
+function brightnessMapping(img) {
+    const width = parseInt(charsPerRow.value);
+    const { imageData, height } = getScaledImageData(img, width);
+    const pixels = imageData.data;
+
+    let chars = customChars.value || CHAR_SETS.standard;
+
+    if (invertBrightness.checked) {
+        chars = chars.split('').reverse().join('');
+    }
+
+    // Calculate brightness values
+    const brightnessValues = new Float32Array(width * height);
+    for (let i = 0; i < width * height; i++) {
+        const pi = i * 4;
+        brightnessValues[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
+    }
+
+    // Apply contrast pre-processing
+    applyContrast(brightnessValues);
+
+    let ascii = '';
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const brightness = brightnessValues[y * width + x];
+            const charIndex = Math.min(chars.length - 1, Math.floor(brightness * chars.length));
+            ascii += chars[charIndex];
+        }
+        ascii += '\n';
+    }
+
+    return { ascii, width, height };
+}
+
+// Algorithm: Edge Detection (Sobel)
+function edgeDetection(img) {
+    const width = parseInt(charsPerRow.value);
+    const { imageData, height } = getScaledImageData(img, width);
+    const pixels = imageData.data;
+    const threshold = parseInt(edgeThreshold.value);
+    const invert = invertBrightness.checked;
+
+    // Convert to grayscale array
+    const gray = new Float32Array(width * height);
+    for (let i = 0; i < width * height; i++) {
+        const pi = i * 4;
+        gray[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
+    }
+
+    // Apply contrast pre-processing
+    applyContrast(gray);
+
+    // Scale to 0-255 for edge detection
+    for (let i = 0; i < gray.length; i++) {
+        gray[i] *= 255;
+    }
+
+    // Sobel kernels
+    const sobelX = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]];
+    const sobelY = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]];
+
+    let ascii = '';
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            let gx = 0, gy = 0;
+
+            for (let ky = -1; ky <= 1; ky++) {
+                for (let kx = -1; kx <= 1; kx++) {
+                    const px = Math.min(width - 1, Math.max(0, x + kx));
+                    const py = Math.min(height - 1, Math.max(0, y + ky));
+                    const val = gray[py * width + px];
+                    gx += val * sobelX[ky + 1][kx + 1];
+                    gy += val * sobelY[ky + 1][kx + 1];
+                }
+            }
+
+            const magnitude = Math.sqrt(gx * gx + gy * gy);
+
+            if (magnitude < threshold) {
+                ascii += invert ? '#' : ' ';
+            } else {
+                // Determine edge direction
+                const angle = Math.atan2(gy, gx) * 180 / Math.PI;
+                let char;
+                if (angle >= -22.5 && angle < 22.5 || angle >= 157.5 || angle < -157.5) {
+                    char = '|'; // Vertical edge
+                } else if (angle >= 22.5 && angle < 67.5 || angle >= -157.5 && angle < -112.5) {
+                    char = '/';
+                } else if (angle >= 67.5 && angle < 112.5 || angle >= -112.5 && angle < -67.5) {
+                    char = '-'; // Horizontal edge
+                } else {
+                    char = '\\';
+                }
+                ascii += invert ? ' ' : char;
+            }
+        }
+        ascii += '\n';
+    }
+
+    return { ascii, width, height };
+}
+
+// Algorithm: Floyd-Steinberg Dithering
+function floydSteinbergDithering(img) {
+    const width = parseInt(charsPerRow.value);
+    const { imageData, height } = getScaledImageData(img, width);
+    const pixels = imageData.data;
+    let chars = customChars.value || CHAR_SETS.standard;
+    if (invertBrightness.checked) {
+        chars = chars.split('').reverse().join('');
+    }
+    const strength = parseInt(ditherStrength.value) / 100;
+
+    // Create brightness array
+    const brightness = new Float32Array(width * height);
+    for (let i = 0; i < width * height; i++) {
+        const pi = i * 4;
+        brightness[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
+    }
+
+    // Apply contrast pre-processing
+    applyContrast(brightness);
+
+    // Floyd-Steinberg dithering
+    const levels = chars.length;
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const i = y * width + x;
+            const oldVal = brightness[i];
+            const newVal = Math.round(oldVal * (levels - 1)) / (levels - 1);
+            brightness[i] = newVal;
+            const error = (oldVal - newVal) * strength;
+
+            if (x + 1 < width) brightness[i + 1] += error * 7 / 16;
+            if (y + 1 < height) {
+                if (x > 0) brightness[i + width - 1] += error * 3 / 16;
+                brightness[i + width] += error * 5 / 16;
+                if (x + 1 < width) brightness[i + width + 1] += error * 1 / 16;
+            }
+        }
+    }
+
+    // Convert to ASCII
+    let ascii = '';
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const val = Math.max(0, Math.min(1, brightness[y * width + x]));
+            const charIndex = Math.min(chars.length - 1, Math.floor(val * chars.length));
+            ascii += chars[charIndex];
+        }
+        ascii += '\n';
+    }
+
+    return { ascii, width, height };
+}
+
+// Algorithm: Block Pattern Matching
+function blockPatternMatching(img) {
+    const targetWidth = parseInt(charsPerRow.value);
+    const blockSize = parseInt(patternBlockSize.value);
+    const chars = patternChars.value || '@#$%&*oahkbdpqwm. ';
+    const invert = invertBrightness.checked;
+
+    // Pre-compute character patterns
+    const charPatterns = computeCharacterPatterns(chars, blockSize);
+
+    // Get image at higher resolution for block sampling
+    const sampleWidth = targetWidth * blockSize;
+    const ratio = getCharRatio();
+    const imgAspect = img.height / img.width;
+    const sampleHeight = Math.max(blockSize, Math.round(sampleWidth * imgAspect * ratio));
+    const outputHeight = Math.floor(sampleHeight / blockSize);
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    canvas.width = sampleWidth;
+    canvas.height = sampleHeight;
+    const source = img._source || img;
+    ctx.drawImage(source, 0, 0, sampleWidth, sampleHeight);
+    const imageData = ctx.getImageData(0, 0, sampleWidth, sampleHeight);
+    const pixels = imageData.data;
+
+    // Calculate all brightness values and apply contrast
+    const brightnessValues = new Float32Array(sampleWidth * sampleHeight);
+    for (let i = 0; i < sampleWidth * sampleHeight; i++) {
+        const pi = i * 4;
+        brightnessValues[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
+    }
+    applyContrast(brightnessValues);
+
+    let ascii = '';
+    for (let by = 0; by < outputHeight; by++) {
+        for (let bx = 0; bx < targetWidth; bx++) {
+            // Extract block brightness pattern
+            const blockPattern = [];
+            for (let y = 0; y < blockSize; y++) {
+                for (let x = 0; x < blockSize; x++) {
+                    const px = bx * blockSize + x;
+                    const py = by * blockSize + y;
+                    if (px < sampleWidth && py < sampleHeight) {
+                        let b = brightnessValues[py * sampleWidth + px];
+                        blockPattern.push(invert ? 1 - b : b);
+                    } else {
+                        blockPattern.push(invert ? 0 : 1);
+                    }
+                }
+            }
+
+            // Find best matching character
+            let bestChar = ' ';
+            let bestScore = Infinity;
+            for (const [char, pattern] of charPatterns) {
+                let score = 0;
+                for (let i = 0; i < blockPattern.length; i++) {
+                    const diff = blockPattern[i] - pattern[i];
+                    score += diff * diff;
+                }
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestChar = char;
+                }
+            }
+            ascii += bestChar;
+        }
+        ascii += '\n';
+    }
+
+    return { ascii, width: targetWidth, height: outputHeight };
+}
+
+function computeCharacterPatterns(chars, blockSize) {
+    const patterns = new Map();
+
+    // Render at larger size for better quality, then downsample
+    const renderSize = 24;
+    const renderCanvas = document.createElement('canvas');
+    const renderCtx = renderCanvas.getContext('2d');
+    renderCanvas.width = renderSize;
+    renderCanvas.height = renderSize;
+
+    // Downsample canvas
+    const sampleCanvas = document.createElement('canvas');
+    const sampleCtx = sampleCanvas.getContext('2d', { willReadFrequently: true });
+    sampleCanvas.width = blockSize;
+    sampleCanvas.height = blockSize;
+
+    renderCtx.textBaseline = 'top';
+    renderCtx.textAlign = 'center';
+
+    for (const char of chars) {
+        // Render character at high resolution
+        renderCtx.fillStyle = 'white';
+        renderCtx.fillRect(0, 0, renderSize, renderSize);
+        renderCtx.fillStyle = 'black';
+        renderCtx.font = `${renderSize}px ${fontFamily.value}`;
+        renderCtx.fillText(char, renderSize / 2, 0);
+
+        // Downsample to block size
+        sampleCtx.fillStyle = 'white';
+        sampleCtx.fillRect(0, 0, blockSize, blockSize);
+        sampleCtx.drawImage(renderCanvas, 0, 0, blockSize, blockSize);
+
+        const imageData = sampleCtx.getImageData(0, 0, blockSize, blockSize);
+        const pattern = [];
+        for (let i = 0; i < imageData.data.length; i += 4) {
+            pattern.push(imageData.data[i] / 255); // Use red channel (grayscale)
+        }
+        patterns.set(char, pattern);
+    }
+
+    return patterns;
+}
+
+
+// Contrast pre-processing helper
+function applyContrast(brightness) {
+    const contrast = parseInt(contrastAmount.value) / 100;
+    const useHistogram = contrastHistogram.checked;
+
+    // Skip if no adjustments needed
+    if (contrast === 1 && !useHistogram) {
+        return brightness;
+    }
+
+    // Histogram equalization
+    if (useHistogram) {
+        const histogram = new Array(256).fill(0);
+        for (let i = 0; i < brightness.length; i++) {
+            const bin = Math.floor(brightness[i] * 255);
+            histogram[bin]++;
+        }
+
+        const cdf = new Array(256);
+        cdf[0] = histogram[0];
+        for (let i = 1; i < 256; i++) {
+            cdf[i] = cdf[i - 1] + histogram[i];
+        }
+
+        const cdfMin = cdf.find(v => v > 0);
+        const total = brightness.length;
+        for (let i = 0; i < brightness.length; i++) {
+            const bin = Math.floor(brightness[i] * 255);
+            brightness[i] = (cdf[bin] - cdfMin) / (total - cdfMin);
+        }
+    }
+
+    // Apply contrast adjustment
+    if (contrast !== 1) {
+        for (let i = 0; i < brightness.length; i++) {
+            let b = brightness[i];
+            b = (b - 0.5) * contrast + 0.5;
+            brightness[i] = Math.max(0, Math.min(1, b));
+        }
+    }
+
+    return brightness;
+}
+
+// Utility functions
+function getBrightness(r, g, b) {
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Copy functions
+function copyAsText() {
+    const text = asciiOutput.textContent;
+    if (!text) {
+        showToast('Nothing to copy');
+        return;
+    }
+
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('Copied as text!');
+    }).catch(() => {
+        showToast('Failed to copy');
+    });
+}
+
+function copyAsHtml() {
+    const isColored = colorMode.value !== 'monochrome' && lastColoredHtml;
+    const isMono = colorMode.value === 'monochrome';
+    const bgColor = isMono ? monoBg.value : (isDarkMode() ? '#0d0d0d' : '#ffffff');
+    const textColor = isMono ? monoFg.value : (isDarkMode() ? '#f0f0f0' : '#000000');
+    let html;
+
+    const baseStyles = `font-family: ${fontFamily.value}; font-size: ${fontSize.value}px; line-height: 1; letter-spacing: 0; white-space: pre; background-color: ${bgColor}; padding: 16px; margin: 0; display: inline-block;`;
+
+    if (isColored) {
+        html = `<pre style="${baseStyles}">${lastColoredHtml}</pre>`;
+    } else {
+        const text = asciiOutput.textContent;
+        if (!text) {
+            showToast('Nothing to copy');
+            return;
+        }
+        html = `<pre style="${baseStyles} color: ${textColor};">${escapeHtml(text)}</pre>`;
+    }
+
+    // Copy HTML source code as plain text
+    navigator.clipboard.writeText(html).then(() => {
+        showToast('Copied HTML code!');
+    }).catch(() => {
+        showToast('Failed to copy');
+    });
+}
+
+function copyAsMarkdown() {
+    const text = asciiOutput.textContent;
+    if (!text) {
+        showToast('Nothing to copy');
+        return;
+    }
+
+    const markdown = '```\n' + text + '```';
+
+    navigator.clipboard.writeText(markdown).then(() => {
+        showToast('Copied as Markdown!');
+    }).catch(() => {
+        showToast('Failed to copy');
+    });
+}
+
+function downloadAsPng() {
+    const text = asciiOutput.textContent;
+    if (!text && !lastColoredHtml) {
+        showToast('Nothing to download');
+        return;
+    }
+
+    const isColored = colorMode.value !== 'monochrome' && lastColoredHtml;
+    const lines = text ? text.split('\n').filter(l => l.length > 0) : [];
+
+    // Measure character dimensions
+    const measureSpan = document.createElement('span');
+    measureSpan.style.fontFamily = fontFamily.value;
+    measureSpan.style.fontSize = fontSize.value + 'px';
+    measureSpan.style.lineHeight = '1';
+    measureSpan.style.position = 'absolute';
+    measureSpan.style.visibility = 'hidden';
+    measureSpan.textContent = 'M';
+    document.body.appendChild(measureSpan);
+    const charWidth = measureSpan.getBoundingClientRect().width;
+    const charHeight = measureSpan.getBoundingClientRect().height;
+    document.body.removeChild(measureSpan);
+
+    // Calculate canvas size
+    const maxLineLength = lines.reduce((max, line) => Math.max(max, line.length), 0);
+    const padding = 20;
+    const canvasWidth = Math.ceil(maxLineLength * charWidth) + padding * 2;
+    const canvasHeight = Math.ceil(lines.length * charHeight) + padding * 2;
+
+    // Create canvas
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+
+    // Fill background (skip for brightness-as-opacity to preserve transparency)
+    const isMono = colorMode.value === 'monochrome';
+    const useBrightnessOpacity = brightnessOpacity.checked;
+    if (!useBrightnessOpacity) {
+        const bgColor = isMono ? monoBg.value : (isDarkMode() ? '#0d0d0d' : '#ffffff');
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    }
+    // else: canvas starts transparent, alpha channel will be preserved
+
+    // Set font
+    ctx.font = `${fontSize.value}px ${fontFamily.value}`;
+    ctx.textBaseline = 'top';
+
+    if (isColored || (isMono && useBrightnessOpacity)) {
+        // Parse colored HTML and render each character with opacity support
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = lastColoredHtml;
+
+        let x = padding;
+        let y = padding;
+
+        for (const node of tempDiv.childNodes) {
+            if (node.nodeType === Node.TEXT_NODE) {
+                const text = node.textContent;
+                for (const char of text) {
+                    if (char === '\n') {
+                        x = padding;
+                        y += charHeight;
+                    } else {
+                        ctx.globalAlpha = 1;
+                        ctx.fillStyle = isDarkMode() ? '#f0f0f0' : '#000000';
+                        ctx.fillText(char, x, y);
+                        x += charWidth;
+                    }
+                }
+            } else if (node.tagName === 'SPAN') {
+                const color = node.style.color || (isDarkMode() ? '#f0f0f0' : '#000000');
+                const char = node.textContent;
+                // Parse rgba to extract alpha for canvas
+                const rgbaMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+                if (rgbaMatch) {
+                    const alpha = rgbaMatch[4] !== undefined ? parseFloat(rgbaMatch[4]) : 1;
+                    ctx.globalAlpha = alpha;
+                    ctx.fillStyle = `rgb(${rgbaMatch[1]},${rgbaMatch[2]},${rgbaMatch[3]})`;
+                } else {
+                    ctx.globalAlpha = 1;
+                    ctx.fillStyle = color;
+                }
+                ctx.fillText(char, x, y);
+                x += charWidth;
+            }
+        }
+        ctx.globalAlpha = 1; // Reset
+    } else {
+        // Render plain text with global opacity
+        const textColor = isMono ? monoFg.value : (isDarkMode() ? '#f0f0f0' : '#000000');
+        const baseOpacity = parseInt(globalOpacity.value) / 100;
+        ctx.globalAlpha = baseOpacity;
+        ctx.fillStyle = textColor;
+
+        lines.forEach((line, i) => {
+            ctx.fillText(line, padding, padding + i * charHeight);
+        });
+        ctx.globalAlpha = 1; // Reset
+    }
+
+    // Download
+    const link = document.createElement('a');
+    link.download = 'ascii-art.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+
+    showToast('Downloaded as PNG!');
+}
+
+// Toast notification
+function showToast(message) {
+    toast.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => {
+        toast.classList.remove('show');
+    }, 2500);
+}
+
+// Start
+init();
