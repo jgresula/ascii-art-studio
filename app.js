@@ -794,15 +794,27 @@ function setupMobileUI() {
 
 function setupSectionToggles() {
     const sections = document.querySelectorAll('.control-section[data-section]');
-    const savedStates = JSON.parse(localStorage.getItem('ascii-sections') || '{}');
+    const savedStatesStr = localStorage.getItem('ascii-sections');
+    const savedStates = savedStatesStr ? JSON.parse(savedStatesStr) : null;
+
+    // Default expanded sections for first-time visitors (desktop only)
+    const defaultExpanded = ['image-source', 'settings-presets'];
 
     sections.forEach(section => {
         const name = section.dataset.section;
         const h3 = section.querySelector('h3');
 
-        // Restore collapsed state
-        if (savedStates[name]) {
-            section.classList.add('collapsed');
+        // Restore collapsed state or apply defaults for first visit
+        if (savedStates !== null) {
+            // User has saved preferences - use them
+            if (savedStates[name]) {
+                section.classList.add('collapsed');
+            }
+        } else {
+            // First visit - collapse all except default expanded sections
+            if (!defaultExpanded.includes(name)) {
+                section.classList.add('collapsed');
+            }
         }
 
         // Add click handler
