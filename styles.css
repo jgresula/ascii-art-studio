@@ -715,12 +715,17 @@ input[type="color"] {
         top: 0;
         left: 0;
         right: 0;
-        bottom: 0;
+        bottom: 35%;
         z-index: 1000;
-        background: var(--bg-secondary);
+        background: rgba(45, 45, 45, 0.95);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
         overflow-y: auto;
         padding: 20px;
         padding-top: 60px;
+        border-bottom-left-radius: 16px;
+        border-bottom-right-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     }
 
     .controls.mobile-panel-open {
@@ -744,7 +749,7 @@ input[type="color"] {
         right: 15px;
         width: 36px;
         height: 36px;
-        background: var(--bg-tertiary);
+        background: rgba(61, 61, 61, 0.9);
         border: 1px solid var(--border-color);
         border-radius: 50%;
         color: var(--text-primary);
@@ -793,11 +798,29 @@ input[type="color"] {
 
     /* Output area takes full width on mobile */
     .output-area {
-        min-height: calc(100vh - 180px);
+        min-height: calc(100vh - 140px);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .output-header {
+        flex-shrink: 0;
     }
 
     .output-header h2 {
         font-size: 1rem;
+    }
+
+    /* Bottom-align ASCII output on mobile for visibility during settings */
+    .ascii-container {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+    }
+
+    #ascii-output {
+        max-height: 100%;
+        overflow: auto;
     }
 
     /* Smaller buttons on mobile */
