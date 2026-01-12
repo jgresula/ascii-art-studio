@@ -218,6 +218,24 @@ input[type="color"] {
     color: var(--accent-color);
 }
 
+/* Desktop: show "Drop or paste", hide "Tap to select" */
+.drop-zone-desktop {
+    display: inline;
+}
+.drop-zone-mobile {
+    display: none;
+}
+
+/* Mobile: show "Tap to select", hide "Drop or paste" */
+@media (hover: none) and (pointer: coarse) {
+    .drop-zone-desktop {
+        display: none;
+    }
+    .drop-zone-mobile {
+        display: inline;
+    }
+}
+
 #file-input {
     display: none;
 }

@@ -19,19 +19,14 @@
                 <div class="control-section" data-section="image-source">
                     <h3>Media Source</h3>
                     <div class="section-content">
-                        <div class="drop-zone" id="drop-zone">
-                            <div class="drop-zone-icon">📁</div>
+                        <div class="drop-zone" id="drop-zone" title="Drag files, paste images/screenshots (Ctrl+V), or paste image URLs">
                             <div class="drop-zone-text">
-                                <strong>Click to upload</strong> or drag & drop
-                                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">Images or videos</div>
+                                <strong class="drop-zone-desktop">Drop or paste</strong>
+                                <strong class="drop-zone-mobile">Tap to select</strong>
+                                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">images • videos • URLs</div>
                             </div>
                         </div>
                         <input type="file" id="file-input" accept="image/*,video/*">
-
-                        <div class="url-input-group">
-                            <input type="text" id="url-input" placeholder="Or paste image URL..." autocomplete="off" spellcheck="false">
-                            <button class="btn btn-primary" id="load-url-btn">Load</button>
-                        </div>
 
                         <div class="preview-section">
                             <h4>Preview</h4>

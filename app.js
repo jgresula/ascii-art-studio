@@ -457,8 +457,6 @@ let videoSettings = {
 // DOM Elements
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
-const urlInput = document.getElementById('url-input');
-const loadUrlBtn = document.getElementById('load-url-btn');
 const imagePreview = document.getElementById('image-preview');
 const videoPreview = document.getElementById('video-preview');
 const videoControls = document.getElementById('video-controls');
@@ -854,11 +852,8 @@ function setupEventListeners() {
     dropZone.addEventListener('drop', handleDrop);
     fileInput.addEventListener('change', handleFileSelect);
 
-    // URL loading
-    loadUrlBtn.addEventListener('click', loadFromUrl);
-    urlInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') loadFromUrl();
-    });
+    // Global paste handler for images and URLs
+    document.addEventListener('paste', handlePaste);
 
     // Video controls
     videoPlayBtn.addEventListener('click', playVideo);
@@ -1454,6 +1449,44 @@ function loadVideoFile(file) {
     loadVideo(url);
 }
 
+// Clipboard paste handling
+function handlePaste(e) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    // Check for image data first
+    for (const item of items) {
+        if (item.type.startsWith('image/')) {
+            e.preventDefault();
+            const file = item.getAsFile();
+            if (file) {
+                loadImageFile(file);
+                return;
+            }
+        }
+    }
+
+    // Check for text that might be a URL
+    for (const item of items) {
+        if (item.type === 'text/plain') {
+            item.getAsString((text) => {
+                const trimmed = text.trim();
+                // Check if it looks like a URL
+                if (trimmed.match(/^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|bmp|svg|mp4|webm|mov|avi)/i) ||
+                    trimmed.match(/^https?:\/\/.+/i) && trimmed.length < 500) {
+                    // Try to load as image/video URL
+                    if (trimmed.match(/\.(mp4|webm|mov|avi)(\?|$)/i)) {
+                        loadVideo(trimmed);
+                    } else {
+                        loadImage(trimmed);
+                    }
+                }
+            });
+            return;
+        }
+    }
+}
+
 function loadVideo(src) {
     showLoading(true);
     placeholder.style.display = 'none';
@@ -1967,14 +2000,6 @@ function stopVideoRecording() {
     mediaRecorder = null;
 }
 
-function loadFromUrl() {
-    const url = urlInput.value.trim();
-    if (!url) {
-        showToast('Please enter an image URL');
-        return;
-    }
-    loadImage(url);
-}
 
 function loadDefaultImage() {
     loadImage('default_image.jpg');
