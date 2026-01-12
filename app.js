@@ -473,7 +473,6 @@ const asciiCanvas = document.getElementById('ascii-canvas');
 const asciiCanvasCtx = asciiCanvas.getContext('2d', { alpha: false });
 const outputInfo = document.getElementById('output-info');
 const placeholder = document.getElementById('placeholder');
-const loading = document.getElementById('loading');
 const copyTextBtn = document.getElementById('copy-text-btn');
 const copyHtmlBtn = document.getElementById('copy-html-btn');
 const copyMarkdownBtn = document.getElementById('copy-markdown-btn');
@@ -1451,7 +1450,6 @@ function handlePaste(e) {
 }
 
 function loadVideo(src) {
-    showLoading(true);
     placeholder.style.display = 'none';
 
     videoPreview.src = src;
@@ -1484,14 +1482,12 @@ function loadVideo(src) {
     };
 
     videoPreview.oncanplay = () => {
-        showLoading(false);
         if (!isVideoPlaying) {
             convertVideoFrame();
         }
     };
 
     videoPreview.onerror = () => {
-        showLoading(false);
         showToast('Failed to load video. Try a different file.');
         isVideoMode = false;
         placeholder.style.display = 'block';
@@ -1970,7 +1966,6 @@ function loadDefaultImage() {
 
 function loadImage(src) {
     stopVideo();
-    showLoading(true);
     placeholder.style.display = 'none';
 
     const img = new Image();
@@ -1987,7 +1982,6 @@ function loadImage(src) {
     };
 
     img.onerror = () => {
-        showLoading(false);
         showToast('Failed to load image. Try a different source.');
         if (!currentImage) {
             placeholder.style.display = 'block';
@@ -2004,10 +1998,6 @@ function showPreview(src) {
     videoControls.style.display = 'none';
     gifExportControls.style.display = 'none';
     noPreview.style.display = 'none';
-}
-
-function showLoading(show) {
-    loading.classList.toggle('show', show);
 }
 
 // Measure character cell dimensions
@@ -2176,12 +2166,9 @@ function handleWorkerMessage(e) {
         if (pendingConversion) {
             pendingConversion = false;
             convertToAscii();
-        } else {
+        } else if (!isVideoPlaying) {
             // Only calculate auto-fit on final conversion (no pending)
-            if (!isVideoPlaying) {
-                showLoading(false);
-                calculateAutoFitFontSize();
-            }
+            calculateAutoFitFontSize();
         }
     }
 }
@@ -2207,11 +2194,6 @@ function convertToAscii() {
         }
 
         workerBusy = true;
-
-        // Don't show loading spinner during video playback
-        if (!isVideoPlaying) {
-            showLoading(true);
-        }
 
         // Get image data
         const { imageData, height } = getScaledImageData(currentImage, width);

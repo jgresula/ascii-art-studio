@@ -508,32 +508,6 @@ input[type="color"] {
     transform: translateY(0);
 }
 
-/* Loading - subtle inline spinner */
-.loading-inline {
-    display: none;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-}
-
-.loading-inline.show {
-    display: flex;
-}
-
-.spinner-small {
-    width: 14px;
-    height: 14px;
-    border: 2px solid var(--border-color);
-    border-top-color: var(--accent-color);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
-
 /* Modal */
 .modal-overlay {
     position: fixed;
