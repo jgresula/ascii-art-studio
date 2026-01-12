@@ -1927,10 +1927,14 @@ async function populateCameraList() {
 async function switchCamera(deviceId) {
     if (!isWebcamActive) return;
 
-    // Stop current stream
+    // Stop current stream tracks
     if (webcamStream) {
         webcamStream.getTracks().forEach(track => track.stop());
+        webcamStream = null;
     }
+
+    // Clear video element
+    videoPreview.srcObject = null;
 
     try {
         const constraints = {
@@ -1940,11 +1944,31 @@ async function switchCamera(deviceId) {
 
         webcamStream = await navigator.mediaDevices.getUserMedia(constraints);
         videoPreview.srcObject = webcamStream;
+
+        // Wait for video to be ready
+        await new Promise((resolve, reject) => {
+            videoPreview.onloadedmetadata = resolve;
+            videoPreview.onerror = reject;
+            setTimeout(reject, 5000); // 5s timeout
+        });
+
         await videoPreview.play();
         updateWebcamMirror();
+        currentVideo = videoPreview;
     } catch (err) {
         console.error('Failed to switch camera:', err);
         showToast('Failed to switch camera');
+        // Try to restart with any camera
+        try {
+            webcamStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            videoPreview.srcObject = webcamStream;
+            await videoPreview.play();
+            updateWebcamMirror();
+            currentVideo = videoPreview;
+        } catch (fallbackErr) {
+            console.error('Fallback camera also failed:', fallbackErr);
+            stopWebcam();
+        }
     }
 }
 

@@ -787,16 +787,16 @@ input[type="color"] {
 
     /* Mobile panel close button */
     .mobile-panel-close {
-        position: fixed;
-        top: 15px;
-        right: 15px;
-        width: 36px;
-        height: 36px;
-        background: rgba(61, 61, 61, 0.9);
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        width: 32px;
+        height: 32px;
+        background: var(--bg-tertiary);
         border: 1px solid var(--border-color);
         border-radius: 50%;
         color: var(--text-primary);
-        font-size: 1.2rem;
+        font-size: 1rem;
         cursor: pointer;
         z-index: 1001;
         display: none;
@@ -804,7 +804,7 @@ input[type="color"] {
         justify-content: center;
     }
 
-    .controls.mobile-panel-open + .mobile-panel-close,
+    .controls.mobile-panel-open .mobile-panel-close,
     .mobile-panel-close.visible {
         display: flex;
     }
@@ -814,11 +814,12 @@ input[type="color"] {
         display: none;
     }
 
-    /* Mobile panel header */
+    /* Mobile panel header - inline with close button */
     .controls.mobile-panel-open .control-section.mobile-active h3 {
-        font-size: 1.2rem;
+        font-size: 1.1rem;
         margin-bottom: 16px;
         padding-bottom: 12px;
+        padding-right: 40px;
         cursor: default;
         border-bottom: 1px solid var(--border-color);
     }
