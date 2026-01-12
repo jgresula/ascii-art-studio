@@ -676,6 +676,7 @@ input[type="color"] {
         flex: 1;
         min-height: 0;
         overflow: hidden;
+        width: 100%;
     }
 
     header {
@@ -766,7 +767,6 @@ input[type="color"] {
         -webkit-backdrop-filter: blur(8px);
         overflow-y: auto;
         padding: 20px;
-        padding-top: 60px;
         border-bottom-left-radius: 16px;
         border-bottom-right-radius: 16px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
@@ -786,18 +786,18 @@ input[type="color"] {
         display: block;
     }
 
-    /* Mobile panel close button */
+    /* Mobile panel close button - aligned with heading */
     .mobile-panel-close {
         position: absolute;
-        top: 20px;
+        top: 18px;
         right: 20px;
-        width: 32px;
-        height: 32px;
+        width: 28px;
+        height: 28px;
         background: var(--bg-tertiary);
         border: 1px solid var(--border-color);
         border-radius: 50%;
         color: var(--text-primary);
-        font-size: 1rem;
+        font-size: 0.9rem;
         cursor: pointer;
         z-index: 1001;
         display: none;
@@ -815,7 +815,7 @@ input[type="color"] {
         display: none;
     }
 
-    /* Mobile panel header - inline with close button */
+    /* Mobile panel header */
     .controls.mobile-panel-open .control-section.mobile-active h3 {
         font-size: 1.1rem;
         margin-bottom: 16px;
