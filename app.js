@@ -33,7 +33,7 @@ const EDGE_CHARS = {
 
 // Auto-fit font size bounds
 const AUTO_FIT_FONT_MIN = 4;
-const AUTO_FIT_FONT_MAX = 36;
+const AUTO_FIT_FONT_MAX = 48;
 
 // Default settings preset
 const DEFAULT_SETTINGS = {
