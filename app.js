@@ -1299,12 +1299,16 @@ function calculateAutoFitFontSize() {
     const containerStyle = getComputedStyle(asciiContainer);
     const paddingX = parseFloat(containerStyle.paddingLeft) + parseFloat(containerStyle.paddingRight);
     const paddingY = parseFloat(containerStyle.paddingTop) + parseFloat(containerStyle.paddingBottom);
-    const containerWidth = asciiContainer.clientWidth - paddingX;
-    const containerHeight = asciiContainer.clientHeight - paddingY;
+
+    // Use scrollWidth/scrollHeight to get the actual available space
+    // Subtract a small safety margin to prevent any overflow
+    const safetyMargin = 2;
+    const containerWidth = asciiContainer.clientWidth - paddingX - safetyMargin;
+    const containerHeight = asciiContainer.clientHeight - paddingY - safetyMargin;
 
     if (containerWidth <= 0 || containerHeight <= 0) return;
 
-    // Measure character aspect ratio at a reference font size
+    // Measure character dimensions at a reference font size
     const refSize = 10;
     const span = document.createElement('span');
     span.style.fontFamily = fontFamily.value;
@@ -1313,25 +1317,21 @@ function calculateAutoFitFontSize() {
     span.style.letterSpacing = '0';
     span.style.position = 'absolute';
     span.style.visibility = 'hidden';
-    span.textContent = '@';
+    span.style.whiteSpace = 'pre';
+    // Measure with a string of characters for more accurate average width
+    span.textContent = '@@@@@@@@@@';
     document.body.appendChild(span);
     const rect = span.getBoundingClientRect();
     document.body.removeChild(span);
 
-    const charWidthRatio = rect.width / refSize;  // char width per pixel of font size
-    const charHeightRatio = rect.height / refSize; // char height per pixel of font size
+    const charWidthRatio = (rect.width / 10) / refSize;  // average char width per pixel of font size
+    const charHeightRatio = rect.height / refSize;
 
-    // Calculate ASCII output dimensions in terms of font size multiplier
-    // outputPixelWidth = currentAsciiWidth * fontSize * charWidthRatio
-    // outputPixelHeight = currentAsciiHeight * fontSize * charHeightRatio
-
-    // Calculate font size needed to fit width
+    // Calculate font size needed to fit width and height
     const fontSizeForWidth = containerWidth / (currentAsciiWidth * charWidthRatio);
-    // Calculate font size needed to fit height
     const fontSizeForHeight = containerHeight / (currentAsciiHeight * charHeightRatio);
 
     // Use the smaller font size to ensure output fits within container
-    // This prevents horizontal overflow which causes page-level scrollbars
     let optimalFontSize = Math.min(fontSizeForWidth, fontSizeForHeight);
 
     // Clamp to bounds
