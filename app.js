@@ -33,7 +33,7 @@ const EDGE_CHARS = {
 
 // Auto-fit font size bounds
 const AUTO_FIT_FONT_MIN = 4;
-const AUTO_FIT_FONT_MAX = 20;
+const AUTO_FIT_FONT_MAX = 32;
 
 // Default settings preset
 const DEFAULT_SETTINGS = {
@@ -477,6 +477,7 @@ const copyTextBtn = document.getElementById('copy-text-btn');
 const copyHtmlBtn = document.getElementById('copy-html-btn');
 const copyMarkdownBtn = document.getElementById('copy-markdown-btn');
 const downloadPngBtn = document.getElementById('download-png-btn');
+const sharePngBtn = document.getElementById('share-png-btn');
 const gifExportControls = document.getElementById('gif-export-controls');
 const downloadGifBtn = document.getElementById('download-gif-btn');
 const downloadVideoBtn = document.getElementById('download-video-btn');
@@ -651,6 +652,11 @@ function init() {
     loadSavedChars();
     updateSettingsDeleteButtonVisibility();
     charRatio.disabled = autoRatio.checked;
+
+    // Show share button if Web Share API with file support is available
+    if (navigator.canShare && navigator.canShare({ files: [new File([''], 'test.png', { type: 'image/png' })] })) {
+        sharePngBtn.style.display = '';
+    }
 
     // Auto-load default image
     loadDefaultImage();
@@ -1050,6 +1056,7 @@ function setupEventListeners() {
     copyHtmlBtn.addEventListener('click', copyAsHtml);
     copyMarkdownBtn.addEventListener('click', copyAsMarkdown);
     downloadPngBtn.addEventListener('click', downloadAsPng);
+    sharePngBtn.addEventListener('click', shareAsPng);
 
     // Settings presets
     settingsPreset.addEventListener('change', handleSettingsPresetChange);
@@ -2649,6 +2656,125 @@ function downloadAsPng() {
     link.click();
 
     showToast('Downloaded as PNG!');
+}
+
+async function shareAsPng() {
+    const text = asciiOutput.textContent;
+    if (!text && !lastColoredHtml) {
+        showToast('Nothing to share');
+        return;
+    }
+
+    // Generate PNG using same logic as downloadAsPng
+    const isColored = colorMode.value !== 'monochrome' && lastColoredHtml;
+    const lines = text ? text.split('\n').filter(l => l.length > 0) : [];
+
+    const measureSpan = document.createElement('span');
+    measureSpan.style.fontFamily = fontFamily.value;
+    measureSpan.style.fontSize = fontSize.value + 'px';
+    measureSpan.style.lineHeight = '1';
+    measureSpan.style.position = 'absolute';
+    measureSpan.style.visibility = 'hidden';
+    measureSpan.textContent = 'M';
+    document.body.appendChild(measureSpan);
+    const charWidth = measureSpan.getBoundingClientRect().width;
+    const charHeight = measureSpan.getBoundingClientRect().height;
+    document.body.removeChild(measureSpan);
+
+    const maxLineLength = lines.reduce((max, line) => Math.max(max, line.length), 0);
+    const padding = 20;
+    const canvasWidth = Math.ceil(maxLineLength * charWidth) + padding * 2;
+    const canvasHeight = Math.ceil(lines.length * charHeight) + padding * 2;
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+
+    const isMono = colorMode.value === 'monochrome';
+    const useBrightnessOpacity = brightnessOpacity.checked;
+    if (!useBrightnessOpacity) {
+        const bgColor = isMono ? monoBg.value : (isDarkMode() ? '#0d0d0d' : '#ffffff');
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    }
+
+    ctx.font = `${fontSize.value}px ${fontFamily.value}`;
+    ctx.textBaseline = 'top';
+
+    if (isColored || (isMono && useBrightnessOpacity)) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = lastColoredHtml;
+
+        let x = padding;
+        let y = padding;
+
+        for (const node of tempDiv.childNodes) {
+            if (node.nodeType === Node.TEXT_NODE) {
+                const nodeText = node.textContent;
+                for (const char of nodeText) {
+                    if (char === '\n') {
+                        x = padding;
+                        y += charHeight;
+                    } else {
+                        ctx.globalAlpha = 1;
+                        ctx.fillStyle = isDarkMode() ? '#f0f0f0' : '#000000';
+                        ctx.fillText(char, x, y);
+                        x += charWidth;
+                    }
+                }
+            } else if (node.tagName === 'SPAN') {
+                const color = node.style.color || (isDarkMode() ? '#f0f0f0' : '#000000');
+                const spanText = node.textContent;
+                const rgbaMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+                if (rgbaMatch) {
+                    const alpha = rgbaMatch[4] !== undefined ? parseFloat(rgbaMatch[4]) : 1;
+                    ctx.globalAlpha = alpha;
+                    ctx.fillStyle = `rgb(${rgbaMatch[1]},${rgbaMatch[2]},${rgbaMatch[3]})`;
+                } else {
+                    ctx.globalAlpha = 1;
+                    ctx.fillStyle = color;
+                }
+                for (const char of spanText) {
+                    ctx.fillText(char, x, y);
+                    x += charWidth;
+                }
+            }
+        }
+        ctx.globalAlpha = 1;
+    } else {
+        const textColor = isMono ? monoFg.value : (isDarkMode() ? '#f0f0f0' : '#000000');
+        const baseOpacity = parseInt(globalOpacity.value) / 100;
+        ctx.globalAlpha = baseOpacity;
+        ctx.fillStyle = textColor;
+
+        lines.forEach((line, i) => {
+            ctx.fillText(line, padding, padding + i * charHeight);
+        });
+        ctx.globalAlpha = 1;
+    }
+
+    // Convert canvas to blob and share
+    canvas.toBlob(async (blob) => {
+        if (!blob) {
+            showToast('Failed to generate image');
+            return;
+        }
+
+        const file = new File([blob], 'ascii-art.png', { type: 'image/png' });
+
+        try {
+            await navigator.share({
+                files: [file],
+                title: 'ASCII Art',
+            });
+            showToast('Shared successfully!');
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                showToast('Failed to share');
+            }
+        }
+    }, 'image/png');
 }
 
 // Toast notification
