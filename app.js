@@ -655,6 +655,10 @@ function init() {
 
     populateFontSelector();
     populateSettingsPresetDropdown();
+
+    // Apply default preset settings on page load
+    applySettings(SETTINGS_PRESETS['default'].settings, true);
+
     setupEventListeners();
     setupSectionToggles();
     updateDisplaySettings();
