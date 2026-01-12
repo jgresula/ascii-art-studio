@@ -596,11 +596,14 @@ function isFontAvailable(fontName) {
 function populateFontSelector() {
     const availableFonts = CANDIDATE_FONTS.filter(f => isFontAvailable(f.name));
 
-    // Always include system monospace as fallback
-    availableFonts.push({ name: 'System Monospace', value: 'monospace' });
+    // System monospace as default (first option)
+    const allFonts = [
+        { name: 'System Monospace', value: 'monospace' },
+        ...availableFonts
+    ];
 
     fontFamily.innerHTML = '';
-    for (const font of availableFonts) {
+    for (const font of allFonts) {
         const option = document.createElement('option');
         option.value = font.value;
         option.textContent = font.name;
