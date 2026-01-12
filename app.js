@@ -770,6 +770,19 @@ function setupMobileUI() {
             closeMobilePanel();
         }
     });
+
+    // Close panel when tapping outside (on mobile)
+    document.addEventListener('click', (e) => {
+        if (!controls?.classList.contains('mobile-panel-open')) return;
+
+        // Check if click is outside the controls panel and not on toolbar buttons
+        const isOutsideControls = !controls.contains(e.target);
+        const isToolbarBtn = e.target.closest('.mobile-toolbar-btn');
+
+        if (isOutsideControls && !isToolbarBtn) {
+            closeMobilePanel();
+        }
+    });
 }
 
 function setupSectionToggles() {
