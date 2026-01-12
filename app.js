@@ -1955,11 +1955,8 @@ function stopWebcam() {
     // Switch back to HTML mode
     setCanvasMode(false);
 
-    // Show placeholder if no image
-    if (!currentImage) {
-        placeholder.style.display = 'block';
-        document.querySelector('.media-input-row')?.classList.remove('has-preview');
-    }
+    // Load default image
+    loadDefaultImage();
 
     showToast('Webcam stopped');
 }
