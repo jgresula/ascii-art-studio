@@ -2172,16 +2172,16 @@ function handleWorkerMessage(e) {
         currentAsciiWidth = width;
         currentAsciiHeight = height;
 
-        if (!isVideoPlaying) {
-            showLoading(false);
-            // Calculate auto-fit font size after conversion
-            calculateAutoFitFontSize();
-        }
-
         // Process pending conversion if any
         if (pendingConversion) {
             pendingConversion = false;
             convertToAscii();
+        } else {
+            // Only calculate auto-fit on final conversion (no pending)
+            if (!isVideoPlaying) {
+                showLoading(false);
+                calculateAutoFitFontSize();
+            }
         }
     }
 }
