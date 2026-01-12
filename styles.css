@@ -824,11 +824,6 @@ input[type="color"] {
         justify-content: flex-end;
     }
 
-    #ascii-output {
-        max-height: 100%;
-        overflow: auto;
-    }
-
     /* Smaller buttons on mobile */
     .copy-buttons {
         flex-wrap: wrap;
