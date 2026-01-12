@@ -1635,7 +1635,28 @@ function loadVideo(src) {
     };
 
     videoPreview.onerror = () => {
-        showToast('Failed to load video. Try a different file.');
+        const error = videoPreview.error;
+        let message = 'Failed to load video.';
+
+        if (error) {
+            switch (error.code) {
+                case MediaError.MEDIA_ERR_ABORTED:
+                    message = 'Video loading aborted.';
+                    break;
+                case MediaError.MEDIA_ERR_NETWORK:
+                    message = 'Network error loading video.';
+                    break;
+                case MediaError.MEDIA_ERR_DECODE:
+                    message = 'Video codec not supported. Try converting to MP4 (H.264).';
+                    break;
+                case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                    message = 'Video format not supported. Try MP4 or WebM.';
+                    break;
+            }
+            console.error('Video error:', error.code, error.message);
+        }
+
+        showToast(message);
         isVideoMode = false;
         placeholder.style.display = 'block';
     };
