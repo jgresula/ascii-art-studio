@@ -78,14 +78,6 @@
                     <h3>Display Settings</h3>
                     <div class="section-content">
                         <div class="setting-row">
-                            <label for="output-background">Background</label>
-                            <select id="output-background">
-                                <option value="dark">Dark</option>
-                                <option value="light">Light</option>
-                            </select>
-                        </div>
-
-                        <div class="setting-row">
                             <label for="chars-per-row">Characters per row</label>
                             <input type="range" id="chars-per-row" min="20" max="300" value="100">
                             <div class="setting-value"><span id="chars-value">100</span></div>
@@ -166,6 +158,14 @@
                                 <option value="adaptive16">Adaptive 16 colors</option>
                                 <option value="adaptive256">Adaptive 256 colors</option>
                                 <option value="ansi256">ANSI 256 colors</option>
+                            </select>
+                        </div>
+
+                        <div class="setting-row">
+                            <label for="output-background">Background</label>
+                            <select id="output-background">
+                                <option value="dark">Dark</option>
+                                <option value="light">Light</option>
                             </select>
                         </div>
 
