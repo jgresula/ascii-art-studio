@@ -58,7 +58,8 @@ header p {
     display: grid;
     grid-template-columns: 350px 1fr;
     gap: 24px;
-    align-items: stretch;
+    align-items: start;
+    min-height: calc(100vh - 140px);
 }
 
 /* Hidden on desktop */
@@ -428,6 +429,7 @@ input[type="color"] {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    align-self: stretch;
 }
 
 .output-header {
