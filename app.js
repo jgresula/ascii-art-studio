@@ -419,6 +419,11 @@ let frameCount = 0;
 let fpsUpdateTime = 0;
 let currentFps = 0;
 
+// Webcam state
+let webcamStream = null;
+let isWebcamActive = false;
+let webcamAnimationId = null;
+
 // Reusable video frame extraction objects
 let videoFrameCanvas = null;
 let videoFrameCtx = null;
@@ -466,6 +471,13 @@ const videoTime = document.getElementById('video-time');
 const videoFps = document.getElementById('video-fps');
 const videoLoop = document.getElementById('video-loop');
 const noPreview = document.getElementById('no-preview');
+
+// Webcam elements
+const webcamStartBtn = document.getElementById('webcam-start-btn');
+const webcamStopBtn = document.getElementById('webcam-stop-btn');
+const webcamControls = document.getElementById('webcam-controls');
+const webcamSelect = document.getElementById('webcam-select');
+const webcamMirror = document.getElementById('webcam-mirror');
 const charsPerRow = document.getElementById('chars-per-row');
 const charsValue = document.getElementById('chars-value');
 const asciiOutput = document.getElementById('ascii-output');
@@ -1020,6 +1032,17 @@ function setupEventListeners() {
             currentVideo.loop = videoLoop.checked;
         }
     });
+
+    // Webcam controls
+    webcamStartBtn.addEventListener('click', startWebcam);
+    webcamStopBtn.addEventListener('click', stopWebcam);
+    webcamSelect.addEventListener('change', () => {
+        if (isWebcamActive) {
+            switchCamera(webcamSelect.value);
+        }
+    });
+    webcamMirror.addEventListener('change', updateWebcamMirror);
+
     downloadGifBtn.addEventListener('click', () => {
         if (isRecordingGif) {
             stopGifRecording(true);
@@ -1502,6 +1525,7 @@ function handleFileSelect(e) {
 // Image loading
 function loadImageFile(file) {
     stopVideo();
+    stopWebcam();
     const reader = new FileReader();
     reader.onload = (e) => {
         loadImage(e.target.result);
@@ -1512,6 +1536,7 @@ function loadImageFile(file) {
 // Video loading
 function loadVideoFile(file) {
     stopVideo();
+    stopWebcam();
     const url = URL.createObjectURL(file);
     loadVideo(url);
 }
@@ -1555,6 +1580,8 @@ function handlePaste(e) {
 }
 
 function loadVideo(src) {
+    stopVideo();
+    stopWebcam();
     placeholder.style.display = 'none';
 
     videoPreview.src = src;
@@ -1723,10 +1750,216 @@ function formatTime(seconds) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
+// Webcam Functions
+async function startWebcam() {
+    if (isWebcamActive) return;
+
+    try {
+        // Stop any playing video first
+        if (isVideoPlaying) {
+            pauseVideo();
+        }
+
+        // Get selected camera or default
+        const deviceId = webcamSelect.value;
+        const constraints = {
+            video: deviceId ? { deviceId: { exact: deviceId } } : true,
+            audio: false
+        };
+
+        webcamStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+        // Show webcam in video preview element
+        videoPreview.srcObject = webcamStream;
+        videoPreview.src = '';
+        await videoPreview.play();
+
+        isWebcamActive = true;
+        isVideoMode = true;
+        currentVideo = videoPreview;
+        currentImage = null;
+
+        // Update UI
+        imagePreview.style.display = 'none';
+        videoPreview.style.display = 'block';
+        noPreview.style.display = 'none';
+        videoControls.style.display = 'none';
+        gifExportControls.style.display = 'flex';
+        webcamControls.style.display = 'block';
+        webcamStartBtn.style.display = 'none';
+        webcamStopBtn.style.display = '';
+        placeholder.style.display = 'none';
+
+        // Apply mirror if enabled
+        updateWebcamMirror();
+
+        // Populate camera list if not done
+        await populateCameraList();
+
+        // Start frame capture loop
+        frameCount = 0;
+        fpsUpdateTime = performance.now();
+        videoFps.style.display = '';
+        videoFps.textContent = 'FPS: --';
+        asciiOutput.parentElement.style.userSelect = 'none';
+        webcamAnimationId = requestAnimationFrame(webcamCaptureLoop);
+
+        showToast('Webcam started');
+    } catch (err) {
+        console.error('Webcam error:', err);
+        if (err.name === 'NotAllowedError') {
+            showToast('Camera permission denied');
+        } else if (err.name === 'NotFoundError') {
+            showToast('No camera found');
+        } else {
+            showToast('Failed to start webcam');
+        }
+    }
+}
+
+function stopWebcam() {
+    if (!isWebcamActive) return;
+
+    // Stop the stream
+    if (webcamStream) {
+        webcamStream.getTracks().forEach(track => track.stop());
+        webcamStream = null;
+    }
+
+    // Cancel animation frame
+    if (webcamAnimationId) {
+        cancelAnimationFrame(webcamAnimationId);
+        webcamAnimationId = null;
+    }
+
+    // Stop any recordings
+    if (isRecordingGif) {
+        stopGifRecording(false);
+    }
+    if (isRecordingVideo) {
+        stopVideoRecording();
+    }
+
+    isWebcamActive = false;
+    isVideoMode = false;
+    currentVideo = null;
+
+    // Reset video element
+    videoPreview.srcObject = null;
+    videoPreview.style.display = 'none';
+    videoPreview.classList.remove('webcam-mirrored');
+
+    // Update UI
+    webcamControls.style.display = 'none';
+    webcamStartBtn.style.display = '';
+    webcamStopBtn.style.display = 'none';
+    gifExportControls.style.display = 'none';
+    videoFps.style.display = 'none';
+    asciiOutput.parentElement.style.userSelect = '';
+
+    // Switch back to HTML mode
+    setCanvasMode(false);
+
+    // Show placeholder if no image
+    if (!currentImage) {
+        placeholder.style.display = 'block';
+    }
+
+    showToast('Webcam stopped');
+}
+
+function webcamCaptureLoop(timestamp) {
+    if (!isWebcamActive) return;
+
+    // Calculate FPS
+    frameCount++;
+    if (timestamp - fpsUpdateTime >= 1000) {
+        currentFps = frameCount;
+        frameCount = 0;
+        fpsUpdateTime = timestamp;
+        videoFps.textContent = `FPS: ${currentFps}`;
+    }
+
+    // Convert current frame
+    convertVideoFrame();
+
+    // Continue loop
+    webcamAnimationId = requestAnimationFrame(webcamCaptureLoop);
+}
+
+async function populateCameraList() {
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cameras = devices.filter(d => d.kind === 'videoinput');
+
+        webcamSelect.innerHTML = '';
+
+        if (cameras.length === 0) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = 'No cameras found';
+            webcamSelect.appendChild(option);
+            return;
+        }
+
+        cameras.forEach((camera, index) => {
+            const option = document.createElement('option');
+            option.value = camera.deviceId;
+            option.textContent = camera.label || `Camera ${index + 1}`;
+            webcamSelect.appendChild(option);
+        });
+
+        // Select current camera if active
+        if (webcamStream) {
+            const currentTrack = webcamStream.getVideoTracks()[0];
+            if (currentTrack) {
+                const settings = currentTrack.getSettings();
+                if (settings.deviceId) {
+                    webcamSelect.value = settings.deviceId;
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Failed to enumerate cameras:', err);
+    }
+}
+
+async function switchCamera(deviceId) {
+    if (!isWebcamActive) return;
+
+    // Stop current stream
+    if (webcamStream) {
+        webcamStream.getTracks().forEach(track => track.stop());
+    }
+
+    try {
+        const constraints = {
+            video: deviceId ? { deviceId: { exact: deviceId } } : true,
+            audio: false
+        };
+
+        webcamStream = await navigator.mediaDevices.getUserMedia(constraints);
+        videoPreview.srcObject = webcamStream;
+        await videoPreview.play();
+        updateWebcamMirror();
+    } catch (err) {
+        console.error('Failed to switch camera:', err);
+        showToast('Failed to switch camera');
+    }
+}
+
+function updateWebcamMirror() {
+    if (webcamMirror.checked) {
+        videoPreview.classList.add('webcam-mirrored');
+    } else {
+        videoPreview.classList.remove('webcam-mirrored');
+    }
+}
+
 // GIF Recording
 function startGifRecording() {
     if (!isVideoMode || !currentVideo) {
-        showToast('Load a video first');
+        showToast('Load a video or start webcam first');
         return;
     }
 
@@ -1738,8 +1971,8 @@ function startGifRecording() {
     downloadGifBtn.classList.add('recording');
     gifStatus.textContent = 'Recording...';
 
-    // Start video playback if not playing
-    if (!isVideoPlaying) {
+    // Start video playback if not playing (not for webcam - it's already streaming)
+    if (!isVideoPlaying && !isWebcamActive) {
         playVideo();
     }
 
@@ -1950,8 +2183,8 @@ function updateFormatOptions() {
 
 // Video Recording (MediaRecorder API)
 function startVideoRecording() {
-    if (!isVideoPlaying) {
-        showToast('Play the video first to record');
+    if (!isVideoPlaying && !isWebcamActive) {
+        showToast('Play a video or start webcam first');
         return;
     }
 
@@ -2043,7 +2276,7 @@ function videoRecordingLoop() {
     const elapsed = performance.now() - videoStartTime;
     gifStatus.textContent = `Recording... ${(elapsed / 1000).toFixed(1)}s`;
 
-    if (elapsed >= videoMaxDuration || !isVideoPlaying) {
+    if (elapsed >= videoMaxDuration || (!isVideoPlaying && !isWebcamActive)) {
         stopVideoRecording();
         return;
     }
@@ -2071,6 +2304,7 @@ function loadDefaultImage() {
 
 function loadImage(src) {
     stopVideo();
+    stopWebcam();
     placeholder.style.display = 'none';
 
     const img = new Image();
@@ -2223,8 +2457,8 @@ function handleWorkerMessage(e) {
         const asciiContainer = asciiOutput.parentElement;
         const mode = colorMode.value;
 
-        // Canvas mode (video playback - always use canvas for video)
-        if (isVideoPlaying) {
+        // Canvas mode (video playback/webcam - always use canvas for live feed)
+        if (isVideoPlaying || isWebcamActive) {
             setCanvasMode(true);
             renderToCanvas(ascii, colorData, width, height);
             if (mode === 'monochrome') {
@@ -2271,7 +2505,7 @@ function handleWorkerMessage(e) {
         if (pendingConversion) {
             pendingConversion = false;
             convertToAscii();
-        } else if (!isVideoPlaying) {
+        } else if (!isVideoPlaying && !isWebcamActive) {
             // Only calculate auto-fit on final conversion (no pending)
             calculateAutoFitFontSize();
         }
@@ -2331,7 +2565,7 @@ function convertToAscii() {
             height,
             settings,
             ansi256Palette: ANSI_256,
-            canvasMode: isVideoPlaying
+            canvasMode: isVideoPlaying || isWebcamActive
         }, [pixelsCopy.buffer]);
     }
 }

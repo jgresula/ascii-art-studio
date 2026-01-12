@@ -81,6 +81,27 @@
                                 </label>
                             </div>
                         </div>
+
+                        <div class="webcam-section" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+                            <div class="copy-buttons">
+                                <button class="btn btn-primary" id="webcam-start-btn">📷 Webcam</button>
+                                <button class="btn btn-secondary" id="webcam-stop-btn" style="display: none;">⏹ Stop</button>
+                            </div>
+                            <div class="webcam-controls" id="webcam-controls" style="display: none; margin-top: 12px;">
+                                <div class="setting-row" style="margin-bottom: 8px;">
+                                    <label for="webcam-select">Camera</label>
+                                    <select id="webcam-select">
+                                        <option value="">Default</option>
+                                    </select>
+                                </div>
+                                <div class="setting-row">
+                                    <div class="checkbox-row">
+                                        <input type="checkbox" id="webcam-mirror" checked>
+                                        <label for="webcam-mirror" style="margin: 0;">Mirror</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

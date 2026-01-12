@@ -498,6 +498,19 @@ input[type="color"] {
     display: none;
 }
 
+/* Webcam */
+#video-preview.webcam-mirrored {
+    transform: scaleX(-1);
+}
+
+.webcam-active #webcam-start-btn {
+    display: none;
+}
+
+.webcam-active #webcam-stop-btn {
+    display: inline-block !important;
+}
+
 /* Toast Notification */
 .toast {
     position: fixed;
