@@ -38,7 +38,7 @@ const AUTO_FIT_FONT_MAX = 20;
 // Default settings preset
 const DEFAULT_SETTINGS = {
     // Display
-    theme: 'dark',
+    outputBackground: 'dark',
     charsPerRow: 100,
     fontSize: 10,
     autoFitFontSize: false,
@@ -105,7 +105,7 @@ const SETTINGS_PRESETS = {
         settings: {
             ...DEFAULT_SETTINGS,
             autoFitFontSize: true,
-            theme: 'light',
+            outputBackground: 'light',
             colorMode: 'monochrome',
             invertBrightness: false,
             monoFg: '#000000',
@@ -498,7 +498,7 @@ const videoFramerateSelect = document.getElementById('video-framerate');
 const videoDurationSelect = document.getElementById('video-duration');
 
 // Display settings
-const themeSelect = document.getElementById('theme-select');
+const outputBackground = document.getElementById('output-background');
 const fontFamily = document.getElementById('font-family');
 const fontSize = document.getElementById('font-size');
 const fontSizeValue = document.getElementById('font-size-value');
@@ -608,20 +608,20 @@ function populateFontSelector() {
     }
 }
 
-// Theme handling
-function applyTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('ascii-theme', theme);
+// Output background handling
+function applyOutputBackground(bg) {
+    const asciiContainer = asciiOutput.parentElement;
+    if (asciiContainer) {
+        asciiContainer.classList.remove('bg-dark', 'bg-light');
+        asciiContainer.classList.add(`bg-${bg}`);
+    }
+    localStorage.setItem('ascii-output-background', bg);
     updateInvertDefaults();
     updateMonoColors();
 }
 
 function isDarkMode() {
-    const theme = themeSelect.value;
-    if (theme === 'dark') return true;
-    if (theme === 'light') return false;
-    // Auto - check system preference
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return outputBackground.value === 'dark';
 }
 
 function updateInvertDefaults() {
@@ -631,10 +631,10 @@ function updateInvertDefaults() {
 
 // Initialize
 function init() {
-    // Load saved theme or default to dark
-    const savedTheme = localStorage.getItem('ascii-theme') || 'dark';
-    themeSelect.value = savedTheme;
-    applyTheme(savedTheme);
+    // Load saved output background or default to dark
+    const savedBg = localStorage.getItem('ascii-output-background') || 'dark';
+    outputBackground.value = savedBg;
+    applyOutputBackground(savedBg);
 
     populateFontSelector();
     populateSettingsPresetDropdown();
@@ -652,15 +652,6 @@ function init() {
     loadSavedChars();
     updateSettingsDeleteButtonVisibility();
     charRatio.disabled = autoRatio.checked;
-
-    // Listen for system theme changes
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-        if (themeSelect.value === 'auto') {
-            updateInvertDefaults();
-            updateMonoColors();
-            if (currentImage) convertToAscii();
-        }
-    });
 
     // Auto-load default image
     loadDefaultImage();
@@ -964,8 +955,8 @@ function setupEventListeners() {
     });
 
     // Display settings
-    themeSelect.addEventListener('change', () => {
-        applyTheme(themeSelect.value);
+    outputBackground.addEventListener('change', () => {
+        applyOutputBackground(outputBackground.value);
         if (currentImage) convertToAscii();
     });
 
@@ -1087,7 +1078,7 @@ function setupEventListeners() {
 function getCurrentSettings() {
     return {
         // Display
-        theme: themeSelect.value,
+        outputBackground: outputBackground.value,
         charsPerRow: parseInt(charsPerRow.value),
         fontSize: parseInt(fontSize.value),
         autoFitFontSize: autoFitFont.checked,
@@ -1113,9 +1104,9 @@ function getCurrentSettings() {
 // Apply settings from an object
 function applySettings(settings, skipConvert = false) {
     // Display settings
-    if (settings.theme !== undefined) {
-        themeSelect.value = settings.theme;
-        applyTheme(settings.theme);
+    if (settings.outputBackground !== undefined) {
+        outputBackground.value = settings.outputBackground;
+        applyOutputBackground(settings.outputBackground);
     }
     if (settings.charsPerRow !== undefined) {
         charsPerRow.value = settings.charsPerRow;
