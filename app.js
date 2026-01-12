@@ -1056,6 +1056,30 @@ function setupEventListeners() {
     });
     webcamMirror.addEventListener('change', updateWebcamMirror);
 
+    // Click on ASCII output to toggle play/pause for video/webcam
+    const asciiContainer = asciiOutput.parentElement;
+    asciiContainer.addEventListener('click', (e) => {
+        // Don't trigger if clicking on buttons or controls inside
+        if (e.target.closest('button') || e.target.closest('a')) return;
+
+        if (isWebcamActive) {
+            // Toggle webcam pause/resume
+            if (webcamAnimationId) {
+                // Pause webcam
+                cancelAnimationFrame(webcamAnimationId);
+                webcamAnimationId = null;
+                videoFps.textContent = 'Paused';
+            } else {
+                // Resume webcam
+                webcamAnimationId = requestAnimationFrame(webcamCaptureLoop);
+            }
+        } else if (isVideoPlaying) {
+            pauseVideo();
+        } else if (isVideoMode && currentVideo) {
+            playVideo();
+        }
+    });
+
     downloadGifBtn.addEventListener('click', () => {
         if (isRecordingGif) {
             stopGifRecording(true);
@@ -1714,8 +1738,9 @@ function playVideo() {
     videoFps.textContent = 'FPS: --';
     frameCount = 0;
     fpsUpdateTime = performance.now();
-    // Make container unselectable during video playback
+    // Make container unselectable and show pointer cursor during video playback
     asciiOutput.parentElement.style.userSelect = 'none';
+    asciiOutput.parentElement.style.cursor = 'pointer';
     videoAnimationId = requestAnimationFrame(videoPlaybackLoop);
 }
 
@@ -1726,8 +1751,9 @@ function pauseVideo() {
     videoPlayBtn.style.display = '';
     videoPauseBtn.style.display = 'none';
     videoFps.style.display = 'none';
-    // Restore selectability when paused
+    // Restore selectability when paused, keep pointer cursor for click-to-play
     asciiOutput.parentElement.style.userSelect = '';
+    asciiOutput.parentElement.style.cursor = 'pointer';
     if (videoAnimationId) {
         cancelAnimationFrame(videoAnimationId);
         videoAnimationId = null;
@@ -1746,8 +1772,9 @@ function stopVideo() {
     currentVideo = null;
     videoPlayBtn.style.display = '';
     videoPauseBtn.style.display = 'none';
-    // Restore selectability when stopped
+    // Restore selectability and cursor when stopped
     asciiOutput.parentElement.style.userSelect = '';
+    asciiOutput.parentElement.style.cursor = '';
     if (videoAnimationId) {
         cancelAnimationFrame(videoAnimationId);
         videoAnimationId = null;
@@ -1840,6 +1867,7 @@ async function startWebcam() {
         videoFps.style.display = '';
         videoFps.textContent = 'FPS: --';
         asciiOutput.parentElement.style.userSelect = 'none';
+        asciiOutput.parentElement.style.cursor = 'pointer';
         needsInitialAutoFit = true; // Trigger auto-fit on first frame
         webcamAnimationId = requestAnimationFrame(webcamCaptureLoop);
 
@@ -1895,6 +1923,7 @@ function stopWebcam() {
     gifExportControls.style.display = 'none';
     videoFps.style.display = 'none';
     asciiOutput.parentElement.style.userSelect = '';
+    asciiOutput.parentElement.style.cursor = '';
 
     // Switch back to HTML mode
     setCanvasMode(false);
