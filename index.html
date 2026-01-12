@@ -2461,6 +2461,7 @@
             videoFps.textContent = 'FPS: --';
             frameCount = 0;
             fpsUpdateTime = performance.now();
+            asciiOutput.style.userSelect = 'none';
             videoAnimationId = requestAnimationFrame(videoPlaybackLoop);
         }
 
@@ -2471,6 +2472,7 @@
             videoPlayBtn.style.display = '';
             videoPauseBtn.style.display = 'none';
             videoFps.style.display = 'none';
+            asciiOutput.style.userSelect = '';
             if (videoAnimationId) {
                 cancelAnimationFrame(videoAnimationId);
                 videoAnimationId = null;
@@ -2489,6 +2491,7 @@
             currentVideo = null;
             videoPlayBtn.style.display = '';
             videoPauseBtn.style.display = 'none';
+            asciiOutput.style.userSelect = '';
             if (videoAnimationId) {
                 cancelAnimationFrame(videoAnimationId);
                 videoAnimationId = null;
@@ -2743,8 +2746,12 @@
                 }
             }
 
-            // Select first supported format
-            if (firstSupported) {
+            // Restore previously selected format if supported, otherwise select first supported
+            const savedFormat = videoSettings.format;
+            const savedOption = videoFormatSelect.querySelector(`option[value="${savedFormat}"]`);
+            if (savedOption && !savedOption.disabled) {
+                videoFormatSelect.value = savedFormat;
+            } else if (firstSupported) {
                 videoFormatSelect.value = firstSupported;
             }
         }
