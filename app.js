@@ -3003,7 +3003,7 @@ function downloadAsPng() {
                 }
             } else if (node.tagName === 'SPAN') {
                 const color = node.style.color || (isDarkMode() ? '#f0f0f0' : '#000000');
-                const char = node.textContent;
+                const text = node.textContent;
                 // Parse rgba to extract alpha for canvas
                 const rgbaMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
                 if (rgbaMatch) {
@@ -3014,8 +3014,11 @@ function downloadAsPng() {
                     ctx.globalAlpha = 1;
                     ctx.fillStyle = color;
                 }
-                ctx.fillText(char, x, y);
-                x += charWidth;
+                // Render each character in the span (spans may contain multiple chars)
+                for (const char of text) {
+                    ctx.fillText(char, x, y);
+                    x += charWidth;
+                }
             }
         }
         ctx.globalAlpha = 1; // Reset
