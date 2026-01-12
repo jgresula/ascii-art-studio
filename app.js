@@ -31,12 +31,17 @@ const EDGE_CHARS = {
     none: ' '
 };
 
+// Auto-fit font size bounds
+const AUTO_FIT_FONT_MIN = 4;
+const AUTO_FIT_FONT_MAX = 20;
+
 // Default settings preset
 const DEFAULT_SETTINGS = {
     // Display
     theme: 'dark',
     charsPerRow: 100,
     fontSize: 10,
+    autoFitFontSize: false,
     autoRatio: true,
     charRatio: 0.5,
     // Algorithm
@@ -64,12 +69,13 @@ const DEFAULT_SETTINGS = {
 const SETTINGS_PRESETS = {
     'default': {
         name: 'Default',
-        settings: { ...DEFAULT_SETTINGS }
+        settings: { ...DEFAULT_SETTINGS, autoFitFontSize: true }
     },
     'high-detail': {
         name: 'High Detail',
         settings: {
             ...DEFAULT_SETTINGS,
+            autoFitFontSize: true,
             charsPerRow: 150,
             charSetPreset: 'detailed',
             customChars: '$@B%8&WM#oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~*<>i!lI;:,"^`\'. ',
@@ -80,6 +86,7 @@ const SETTINGS_PRESETS = {
         name: 'Retro Terminal',
         settings: {
             ...DEFAULT_SETTINGS,
+            autoFitFontSize: true,
             charSetPreset: 'simple',
             customChars: '#. ',
             colorMode: 'monochrome',
@@ -92,6 +99,7 @@ const SETTINGS_PRESETS = {
         name: 'Classic ASCII',
         settings: {
             ...DEFAULT_SETTINGS,
+            autoFitFontSize: true,
             colorMode: 'monochrome',
             monoFg: '#ffffff',
             monoBg: '#000000'
@@ -101,6 +109,7 @@ const SETTINGS_PRESETS = {
         name: 'Print Friendly',
         settings: {
             ...DEFAULT_SETTINGS,
+            autoFitFontSize: true,
             theme: 'light',
             colorMode: 'monochrome',
             invertBrightness: false,
@@ -112,6 +121,7 @@ const SETTINGS_PRESETS = {
         name: 'Colorful',
         settings: {
             ...DEFAULT_SETTINGS,
+            autoFitFontSize: true,
             colorMode: 'truecolor',
             saturation: 150,
             contrast: 120
@@ -121,6 +131,7 @@ const SETTINGS_PRESETS = {
         name: 'Limited Palette (16)',
         settings: {
             ...DEFAULT_SETTINGS,
+            autoFitFontSize: true,
             colorMode: 'adaptive16',
             contrast: 110
         }
@@ -129,6 +140,7 @@ const SETTINGS_PRESETS = {
         name: 'Grayscale',
         settings: {
             ...DEFAULT_SETTINGS,
+            autoFitFontSize: true,
             colorMode: 'adaptive16',
             saturation: 0
         }
@@ -137,6 +149,7 @@ const SETTINGS_PRESETS = {
         name: 'Blocks',
         settings: {
             ...DEFAULT_SETTINGS,
+            autoFitFontSize: true,
             charSetPreset: 'blocks',
             customChars: '█▓▒░ ',
             colorMode: 'truecolor'
@@ -146,6 +159,7 @@ const SETTINGS_PRESETS = {
         name: 'Blocks Grayscale',
         settings: {
             ...DEFAULT_SETTINGS,
+            autoFitFontSize: true,
             charSetPreset: 'blocks',
             customChars: '█▓▒░ ',
             colorMode: 'adaptive16',
@@ -156,6 +170,7 @@ const SETTINGS_PRESETS = {
         name: 'Opacity (Color)',
         settings: {
             ...DEFAULT_SETTINGS,
+            autoFitFontSize: true,
             charSetPreset: 'single',
             customChars: '█',
             colorMode: 'truecolor',
@@ -166,6 +181,7 @@ const SETTINGS_PRESETS = {
         name: 'Opacity (Grayscale)',
         settings: {
             ...DEFAULT_SETTINGS,
+            autoFitFontSize: true,
             charSetPreset: 'single',
             customChars: '█',
             colorMode: 'adaptive16',
@@ -177,6 +193,7 @@ const SETTINGS_PRESETS = {
         name: 'Transparent Overlay',
         settings: {
             ...DEFAULT_SETTINGS,
+            autoFitFontSize: true,
             opacity: 60,
             colorMode: 'truecolor'
         }
@@ -490,6 +507,7 @@ const themeSelect = document.getElementById('theme-select');
 const fontFamily = document.getElementById('font-family');
 const fontSize = document.getElementById('font-size');
 const fontSizeValue = document.getElementById('font-size-value');
+const autoFitFont = document.getElementById('auto-fit-font');
 const charRatio = document.getElementById('char-ratio');
 const charRatioValue = document.getElementById('char-ratio-value');
 const autoRatio = document.getElementById('auto-ratio');
@@ -924,10 +942,21 @@ function setupEventListeners() {
     });
 
     fontSize.addEventListener('input', () => {
+        // Disable auto-fit when user manually drags the slider
+        if (autoFitFont.checked) {
+            autoFitFont.checked = false;
+        }
         fontSizeValue.textContent = fontSize.value;
         updateDisplaySettings();
         updateCharRatio();
         debouncedConvert();
+    });
+
+    // Auto-fit font size checkbox
+    autoFitFont.addEventListener('change', () => {
+        if (autoFitFont.checked) {
+            calculateAutoFitFontSize();
+        }
     });
 
     charRatio.addEventListener('input', () => {
@@ -1036,6 +1065,9 @@ function setupEventListeners() {
             }
         }
     });
+
+    // Window resize listener for auto-fit font size
+    window.addEventListener('resize', debouncedAutoFit);
 }
 
 // Get current settings as an object
@@ -1045,6 +1077,7 @@ function getCurrentSettings() {
         theme: themeSelect.value,
         charsPerRow: parseInt(charsPerRow.value),
         fontSize: parseInt(fontSize.value),
+        autoFitFontSize: autoFitFont.checked,
         autoRatio: autoRatio.checked,
         charRatio: parseFloat(charRatio.value),
         // Algorithm
@@ -1081,6 +1114,9 @@ function applySettings(settings, skipConvert = false) {
     }
     if (settings.fontSize !== undefined) {
         fontSize.value = settings.fontSize;
+    }
+    if (settings.autoFitFontSize !== undefined) {
+        autoFitFont.checked = settings.autoFitFontSize;
     }
     if (settings.autoRatio !== undefined) {
         autoRatio.checked = settings.autoRatio;
@@ -1263,6 +1299,89 @@ function updateCharRatio() {
     // Round to 1 decimal for slider compatibility
     charRatio.value = cachedCharRatio.toFixed(1);
     charRatioValue.textContent = cachedCharRatio.toFixed(1);
+}
+
+// Current ASCII output dimensions (updated after each conversion)
+let currentAsciiWidth = 0;
+let currentAsciiHeight = 0;
+
+// Calculate and apply auto-fit font size
+function calculateAutoFitFontSize() {
+    if (!autoFitFont.checked) return;
+    if (currentAsciiWidth === 0 || currentAsciiHeight === 0) return;
+
+    const asciiContainer = asciiOutput.parentElement;
+    if (!asciiContainer) return;
+
+    // Get container inner dimensions (subtract padding)
+    const containerStyle = getComputedStyle(asciiContainer);
+    const paddingX = parseFloat(containerStyle.paddingLeft) + parseFloat(containerStyle.paddingRight);
+    const paddingY = parseFloat(containerStyle.paddingTop) + parseFloat(containerStyle.paddingBottom);
+    const containerWidth = asciiContainer.clientWidth - paddingX;
+    const containerHeight = asciiContainer.clientHeight - paddingY;
+
+    if (containerWidth <= 0 || containerHeight <= 0) return;
+
+    // Measure character aspect ratio at a reference font size
+    const refSize = 10;
+    const span = document.createElement('span');
+    span.style.fontFamily = fontFamily.value;
+    span.style.fontSize = refSize + 'px';
+    span.style.lineHeight = '1';
+    span.style.letterSpacing = '0';
+    span.style.position = 'absolute';
+    span.style.visibility = 'hidden';
+    span.textContent = '@';
+    document.body.appendChild(span);
+    const rect = span.getBoundingClientRect();
+    document.body.removeChild(span);
+
+    const charWidthRatio = rect.width / refSize;  // char width per pixel of font size
+    const charHeightRatio = rect.height / refSize; // char height per pixel of font size
+
+    // Calculate ASCII output dimensions in terms of font size multiplier
+    // outputPixelWidth = currentAsciiWidth * fontSize * charWidthRatio
+    // outputPixelHeight = currentAsciiHeight * fontSize * charHeightRatio
+
+    // Calculate font size needed to fit width
+    const fontSizeForWidth = containerWidth / (currentAsciiWidth * charWidthRatio);
+    // Calculate font size needed to fit height
+    const fontSizeForHeight = containerHeight / (currentAsciiHeight * charHeightRatio);
+
+    // Calculate aspect ratios to decide which dimension to fit
+    const outputAspect = (currentAsciiWidth * charWidthRatio) / (currentAsciiHeight * charHeightRatio);
+    const containerAspect = containerWidth / containerHeight;
+
+    // Choose the constraining dimension
+    let optimalFontSize;
+    if (outputAspect > containerAspect) {
+        // Output is wider relative to container - fit width
+        optimalFontSize = fontSizeForWidth;
+    } else {
+        // Output is taller relative to container - fit height
+        optimalFontSize = fontSizeForHeight;
+    }
+
+    // Clamp to bounds
+    optimalFontSize = Math.max(AUTO_FIT_FONT_MIN, Math.min(AUTO_FIT_FONT_MAX, optimalFontSize));
+
+    // Round to integer for slider compatibility
+    optimalFontSize = Math.round(optimalFontSize);
+
+    // Update the font size slider and display
+    fontSize.value = optimalFontSize;
+    fontSizeValue.textContent = optimalFontSize;
+
+    // Apply the new font size
+    updateDisplaySettings();
+    updateCharRatio();
+}
+
+// Debounced auto-fit for window resize
+let autoFitResizeTimeout;
+function debouncedAutoFit() {
+    clearTimeout(autoFitResizeTimeout);
+    autoFitResizeTimeout = setTimeout(calculateAutoFitFontSize, 150);
 }
 
 function updateAlgorithmPanel() {
@@ -2067,8 +2186,14 @@ function handleWorkerMessage(e) {
         lastConversionTime = duration;
         outputInfo.textContent = `${width} × ${height} chars`;
 
+        // Update current ASCII dimensions for auto-fit
+        currentAsciiWidth = width;
+        currentAsciiHeight = height;
+
         if (!isVideoPlaying) {
             showLoading(false);
+            // Calculate auto-fit font size after conversion
+            calculateAutoFitFontSize();
         }
 
         // Process pending conversion if any
@@ -2254,8 +2379,14 @@ function convertToAsciiMainThread(algo, mode, width) {
         lastConversionTime = performance.now() - startTime;
         outputInfo.textContent = `${result.width} × ${result.height} chars`;
 
+        // Update current ASCII dimensions for auto-fit
+        currentAsciiWidth = result.width;
+        currentAsciiHeight = result.height;
+
         if (!isVideoPlaying) {
             showLoading(false);
+            // Calculate auto-fit font size after conversion
+            calculateAutoFitFontSize();
         }
     }, 10);
 }
