@@ -912,9 +912,11 @@
                             <div class="setting-value"><span id="global-opacity-value">100</span>%</div>
                         </div>
 
-                        <div class="setting-row" style="white-space: nowrap;">
-                            <input type="checkbox" id="brightness-opacity">
-                            <label for="brightness-opacity" style="margin: 0;">Brightness as opacity</label>
+                        <div class="setting-row">
+                            <div class="checkbox-row">
+                                <input type="checkbox" id="brightness-opacity">
+                                <label for="brightness-opacity" style="margin: 0;">Brightness as opacity</label>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -3036,8 +3038,8 @@
                 const asciiContainer = asciiOutput.parentElement;
                 const mode = colorMode.value;
 
-                // Canvas mode (video playback)
-                if (colorData) {
+                // Canvas mode (video playback - always use canvas for video)
+                if (isVideoPlaying) {
                     setCanvasMode(true);
                     renderToCanvas(ascii, colorData, width, height);
                     if (mode === 'monochrome') {
@@ -3050,7 +3052,7 @@
                     lastWidth = width;
                     lastHeight = height;
                 }
-                // HTML mode (static images or paused video)
+                // HTML mode (static images with color/opacity)
                 else if (html) {
                     setCanvasMode(false);
                     asciiOutput.innerHTML = html;
@@ -3062,7 +3064,7 @@
                         asciiContainer.style.backgroundColor = '';
                     }
                 } else if (mode === 'monochrome') {
-                    // Plain monochrome without brightness opacity
+                    // Plain monochrome without brightness opacity (static images)
                     setCanvasMode(false);
                     const baseOpacity = parseInt(globalOpacity.value) / 100;
                     asciiContainer.style.backgroundColor = monoBg.value;
