@@ -64,13 +64,13 @@
                     <div class="section-content">
                         <div class="setting-row">
                             <label for="settings-preset">Preset</label>
-                            <select id="settings-preset" style="flex: 1;">
-                                <!-- Populated dynamically -->
-                            </select>
-                        </div>
-                        <div class="copy-buttons" style="margin-top: 8px;">
-                            <button class="btn btn-secondary" id="save-settings-preset-btn">Save Current</button>
-                            <button class="btn btn-secondary" id="delete-settings-preset-btn" style="display: none;">Delete</button>
+                            <div class="inline-group">
+                                <select id="settings-preset" style="flex: 1;">
+                                    <!-- Populated dynamically -->
+                                </select>
+                                <button class="btn btn-secondary btn-small" id="save-settings-preset-btn" title="Save current settings as preset">Save</button>
+                                <button class="btn btn-secondary btn-small" id="delete-settings-preset-btn" title="Delete selected custom preset" style="display: none;">Del</button>
+                            </div>
                         </div>
                     </div>
                 </div>
