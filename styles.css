@@ -433,28 +433,6 @@ input[type="color"] {
     flex: 1;
 }
 
-/* Algorithm Settings */
-.algo-settings {
-    background: var(--bg-primary);
-    border-radius: 6px;
-    padding: 12px;
-    margin-top: 12px;
-}
-
-.algo-settings h4 {
-    font-size: 0.85rem;
-    margin-bottom: 12px;
-    color: var(--text-primary);
-}
-
-.algo-settings-panel {
-    display: none;
-}
-
-.algo-settings-panel.active {
-    display: block;
-}
-
 /* Copy Buttons */
 .copy-buttons {
     display: flex;

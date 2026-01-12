@@ -119,85 +119,36 @@
                     </div>
                 </div>
 
-                <div class="control-section" data-section="algorithm">
-                    <h3>Algorithm</h3>
+                <div class="control-section" data-section="character-set">
+                    <h3>Character Set</h3>
                     <div class="section-content">
                         <div class="setting-row">
-                            <label for="algorithm">Method</label>
-                            <select id="algorithm">
-                                <option value="brightness">Brightness Mapping</option>
-                                <option value="dithering">Floyd-Steinberg Dithering</option>
-                                <option value="pattern">Block Pattern Matching</option>
-                                <option value="edge">Edge Detection</option>
-                            </select>
+                            <label for="char-set">Preset</label>
+                            <div class="inline-group">
+                                <select id="char-set" style="flex: 1;">
+                                    <optgroup label="Built-in">
+                                        <option value="standard">Standard</option>
+                                        <option value="detailed">Detailed</option>
+                                        <option value="blocks">Blocks</option>
+                                        <option value="simple">Simple</option>
+                                    </optgroup>
+                                    <optgroup label="Custom" id="char-set-custom-group">
+                                    </optgroup>
+                                </select>
+                                <button class="btn btn-secondary btn-small" id="save-chars-btn" title="Save current characters as preset">Save</button>
+                                <button class="btn btn-secondary btn-small" id="delete-chars-btn" title="Delete selected custom preset" style="display: none;">Del</button>
+                            </div>
                         </div>
-
-                        <div class="algo-settings" id="algo-settings">
-                            <!-- Character Set (shared by brightness and dithering) -->
-                            <div class="algo-settings-panel" id="settings-charset">
-                                <div class="setting-row">
-                                    <label for="char-set">Character Set</label>
-                                    <div class="inline-group">
-                                        <select id="char-set" style="flex: 1;">
-                                            <optgroup label="Built-in">
-                                                <option value="standard">Standard</option>
-                                                <option value="detailed">Detailed</option>
-                                                <option value="blocks">Blocks</option>
-                                                <option value="simple">Simple</option>
-                                            </optgroup>
-                                            <optgroup label="Custom" id="char-set-custom-group">
-                                            </optgroup>
-                                        </select>
-                                        <button class="btn btn-secondary btn-small" id="save-chars-btn" title="Save current characters as preset">Save</button>
-                                        <button class="btn btn-secondary btn-small" id="delete-chars-btn" title="Delete selected custom preset" style="display: none;">Del</button>
-                                    </div>
-                                </div>
-                                <div class="setting-row">
-                                    <label for="custom-chars">Characters (dark to light)</label>
-                                    <input type="text" id="custom-chars" value="@%#+=*-:. " placeholder="Characters dark to light" autocomplete="off" spellcheck="false">
-                                </div>
-                                <div class="setting-row">
-                                    <div class="inline-group">
-                                        <button class="btn btn-secondary btn-small" id="sort-chars-btn" title="Sort characters by visual brightness">Sort</button>
-                                        <label for="reduce-count" style="margin: 0; white-space: nowrap;">Reduce to</label>
-                                        <input type="number" id="reduce-count" min="0" max="100" value="0" style="width: 60px;" title="0 = no reduction">
-                                        <span style="font-size: 0.85rem; color: var(--text-secondary);">chars</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Dithering Settings -->
-                            <div class="algo-settings-panel" id="settings-dithering">
-                                <div class="setting-row">
-                                    <label for="dither-strength">Error Diffusion Strength</label>
-                                    <input type="range" id="dither-strength" min="0" max="100" value="100">
-                                    <div class="setting-value"><span id="dither-strength-value">100</span>%</div>
-                                </div>
-                            </div>
-
-                            <!-- Edge Detection Settings -->
-                            <div class="algo-settings-panel" id="settings-edge">
-                                <div class="setting-row">
-                                    <label for="edge-threshold">Edge Threshold</label>
-                                    <input type="range" id="edge-threshold" min="10" max="200" value="50">
-                                    <div class="setting-value"><span id="edge-threshold-value">50</span></div>
-                                </div>
-                            </div>
-
-                            <!-- Pattern Matching Settings -->
-                            <div class="algo-settings-panel" id="settings-pattern">
-                                <div class="setting-row">
-                                    <label for="pattern-block-size">Block Size</label>
-                                    <select id="pattern-block-size">
-                                        <option value="2">2x2</option>
-                                        <option value="3" selected>3x3</option>
-                                        <option value="4">4x4</option>
-                                    </select>
-                                </div>
-                                <div class="setting-row">
-                                    <label for="pattern-chars">Character Pool</label>
-                                    <input type="text" id="pattern-chars" value="@#$%&8BMW*oahkbdpqwmZO0QCJYXzcvunxrjft/\|()1{}[]?-_+~<>i!lI;:,. " placeholder="Characters to use" autocomplete="off" spellcheck="false">
-                                </div>
+                        <div class="setting-row">
+                            <label for="custom-chars">Characters (dark to light)</label>
+                            <input type="text" id="custom-chars" value="@%#+=*-:. " placeholder="Characters dark to light" autocomplete="off" spellcheck="false">
+                        </div>
+                        <div class="setting-row">
+                            <div class="inline-group">
+                                <button class="btn btn-secondary btn-small" id="sort-chars-btn" title="Sort characters by visual brightness">Sort</button>
+                                <label for="reduce-count" style="margin: 0; white-space: nowrap;">Reduce to</label>
+                                <input type="number" id="reduce-count" min="0" max="100" value="0" style="width: 60px;" title="0 = no reduction">
+                                <span style="font-size: 0.85rem; color: var(--text-secondary);">chars</span>
                             </div>
                         </div>
                     </div>

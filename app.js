@@ -44,14 +44,9 @@ const DEFAULT_SETTINGS = {
     autoFitFontSize: false,
     autoRatio: true,
     charRatio: 0.5,
-    // Algorithm
-    algorithm: 'brightness',
+    // Character Set
     charSetPreset: 'standard',
     customChars: '@%#+=*-:. ',
-    ditherStrength: 100,
-    edgeThreshold: 50,
-    patternBlockSize: '3',
-    patternChars: "@#$%&8BMW*oahkbdpqwmZO0QCJYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,. ",
     // Output
     colorMode: 'truecolor',
     invertBrightness: true,
@@ -473,7 +468,6 @@ const videoLoop = document.getElementById('video-loop');
 const noPreview = document.getElementById('no-preview');
 const charsPerRow = document.getElementById('chars-per-row');
 const charsValue = document.getElementById('chars-value');
-const algorithm = document.getElementById('algorithm');
 const asciiOutput = document.getElementById('ascii-output');
 const asciiCanvas = document.getElementById('ascii-canvas');
 const asciiCanvasCtx = asciiCanvas.getContext('2d', { alpha: false });
@@ -513,7 +507,7 @@ const charRatio = document.getElementById('char-ratio');
 const charRatioValue = document.getElementById('char-ratio-value');
 const autoRatio = document.getElementById('auto-ratio');
 
-// Brightness settings
+// Character set settings
 const charSet = document.getElementById('char-set');
 const charSetCustomGroup = document.getElementById('char-set-custom-group');
 const customChars = document.getElementById('custom-chars');
@@ -521,18 +515,6 @@ const sortCharsBtn = document.getElementById('sort-chars-btn');
 const reduceCount = document.getElementById('reduce-count');
 const saveCharsBtn = document.getElementById('save-chars-btn');
 const deleteCharsBtn = document.getElementById('delete-chars-btn');
-
-// Edge settings
-const edgeThreshold = document.getElementById('edge-threshold');
-const edgeThresholdValue = document.getElementById('edge-threshold-value');
-
-// Dithering settings
-const ditherStrength = document.getElementById('dither-strength');
-const ditherStrengthValue = document.getElementById('dither-strength-value');
-
-// Pattern settings
-const patternBlockSize = document.getElementById('pattern-block-size');
-const patternChars = document.getElementById('pattern-chars');
 
 // Output settings (global)
 const invertBrightness = document.getElementById('invert-brightness');
@@ -664,7 +646,6 @@ function init() {
     setupSectionToggles();
     updateDisplaySettings();
     updateCharRatio();
-    updateAlgorithmPanel();
     updateMonoColors();
     initColorModeVisibility();
     initSliderValues();
@@ -727,8 +708,6 @@ function initSliderValues() {
     charsValue.textContent = charsPerRow.value;
     charRatioValue.textContent = charRatio.value;
     contrastAmountValue.textContent = contrastAmount.value;
-    edgeThresholdValue.textContent = edgeThreshold.value;
-    ditherStrengthValue.textContent = ditherStrength.value;
     brightnessBlendValue.textContent = brightnessBlend.value;
     colorSaturationValue.textContent = colorSaturation.value;
     globalOpacityValue.textContent = globalOpacity.value;
@@ -1033,12 +1012,7 @@ function setupEventListeners() {
         debouncedConvert();
     });
 
-    algorithm.addEventListener('change', () => {
-        updateAlgorithmPanel();
-        if (currentImage) convertToAscii();
-    });
-
-    // Brightness settings
+    // Character set settings
     charSet.addEventListener('change', () => handlePresetChange(charSet, customChars));
     customChars.addEventListener('input', () => { if (currentImage) convertToAscii(); });
     sortCharsBtn.addEventListener('click', () => {
@@ -1048,22 +1022,6 @@ function setupEventListeners() {
     });
     saveCharsBtn.addEventListener('click', () => handleSavePreset(customChars, charSet));
     deleteCharsBtn.addEventListener('click', () => handleDeletePreset(charSet, customChars));
-
-    // Edge settings
-    edgeThreshold.addEventListener('input', () => {
-        edgeThresholdValue.textContent = edgeThreshold.value;
-        debouncedConvert();
-    });
-
-    // Dithering settings
-    ditherStrength.addEventListener('input', () => {
-        ditherStrengthValue.textContent = ditherStrength.value;
-        debouncedConvert();
-    });
-
-    // Pattern settings
-    patternBlockSize.addEventListener('change', () => { if (currentImage) convertToAscii(); });
-    patternChars.addEventListener('input', () => { if (currentImage) convertToAscii(); });
 
     // Output settings (global)
     invertBrightness.addEventListener('change', () => { if (currentImage) convertToAscii(); });
@@ -1135,14 +1093,9 @@ function getCurrentSettings() {
         autoFitFontSize: autoFitFont.checked,
         autoRatio: autoRatio.checked,
         charRatio: parseFloat(charRatio.value),
-        // Algorithm
-        algorithm: algorithm.value,
+        // Character Set
         charSetPreset: charSet.value,
         customChars: customChars.value,
-        ditherStrength: parseInt(ditherStrength.value),
-        edgeThreshold: parseInt(edgeThreshold.value),
-        patternBlockSize: patternBlockSize.value,
-        patternChars: patternChars.value,
         // Output
         colorMode: colorMode.value,
         invertBrightness: invertBrightness.checked,
@@ -1181,10 +1134,7 @@ function applySettings(settings, skipConvert = false) {
         charRatio.value = settings.charRatio;
     }
 
-    // Algorithm settings
-    if (settings.algorithm !== undefined) {
-        algorithm.value = settings.algorithm;
-    }
+    // Character set settings
     if (settings.charSetPreset !== undefined) {
         charSet.value = settings.charSetPreset;
     }
@@ -1195,18 +1145,6 @@ function applySettings(settings, skipConvert = false) {
         } else {
             customChars.value = settings.customChars;
         }
-    }
-    if (settings.ditherStrength !== undefined) {
-        ditherStrength.value = settings.ditherStrength;
-    }
-    if (settings.edgeThreshold !== undefined) {
-        edgeThreshold.value = settings.edgeThreshold;
-    }
-    if (settings.patternBlockSize !== undefined) {
-        patternBlockSize.value = settings.patternBlockSize;
-    }
-    if (settings.patternChars !== undefined) {
-        patternChars.value = settings.patternChars;
     }
 
     // Output settings
@@ -1248,7 +1186,6 @@ function applySettings(settings, skipConvert = false) {
     } else {
         charRatioValue.textContent = charRatio.value;
     }
-    updateAlgorithmPanel();
     initColorModeVisibility();
     initSliderValues();
     updateDeleteButtonVisibility();
@@ -1427,27 +1364,6 @@ let autoFitResizeTimeout;
 function debouncedAutoFit() {
     clearTimeout(autoFitResizeTimeout);
     autoFitResizeTimeout = setTimeout(calculateAutoFitFontSize, 150);
-}
-
-function updateAlgorithmPanel() {
-    const algo = algorithm.value;
-    document.querySelectorAll('.algo-settings-panel').forEach(panel => {
-        panel.classList.remove('active');
-    });
-
-    // Character set is shared by brightness and dithering
-    if (algo === 'brightness' || algo === 'dithering') {
-        document.getElementById('settings-charset').classList.add('active');
-    }
-
-    // Algorithm-specific panels
-    if (algo === 'dithering') {
-        document.getElementById('settings-dithering').classList.add('active');
-    } else if (algo === 'edge') {
-        document.getElementById('settings-edge').classList.add('active');
-    } else if (algo === 'pattern') {
-        document.getElementById('settings-pattern').classList.add('active');
-    }
 }
 
 // Drag and drop handlers
@@ -2288,15 +2204,11 @@ let lastHeight = 0;
 function convertToAscii() {
     if (!currentImage) return;
 
-    const algo = algorithm.value;
     const mode = colorMode.value;
     const width = parseInt(charsPerRow.value);
 
-    // Use worker for brightness algorithm (most common case)
-    // Fall back to main thread for other algorithms or if worker unavailable
-    const canUseWorker = asciiWorker && algo === 'brightness';
-
-    if (canUseWorker) {
+    // Use worker for conversion
+    if (asciiWorker) {
         // If worker is busy, mark pending and return
         if (workerBusy) {
             pendingConversion = true;
@@ -2343,128 +2255,9 @@ function convertToAscii() {
             ansi256Palette: ANSI_256,
             canvasMode: isVideoPlaying
         }, [pixelsCopy.buffer]);
-
-    } else {
-        // Main thread fallback for non-brightness algorithms
-        convertToAsciiMainThread(algo, mode, width);
     }
 }
 
-// Main thread conversion (fallback for edge, dithering, pattern)
-function convertToAsciiMainThread(algo, mode, width) {
-    if (!isVideoPlaying) {
-        showLoading(true);
-    }
-
-    setTimeout(() => {
-        const startTime = performance.now();
-
-        let result;
-        switch (algo) {
-            case 'brightness':
-                result = brightnessMapping(currentImage);
-                break;
-            case 'edge':
-                result = edgeDetection(currentImage);
-                break;
-            case 'dithering':
-                result = floydSteinbergDithering(currentImage);
-                break;
-            case 'pattern':
-                result = blockPatternMatching(currentImage);
-                break;
-            default:
-                result = brightnessMapping(currentImage);
-        }
-
-        const asciiContainer = asciiOutput.parentElement;
-        const { imageData } = getScaledImageData(currentImage, result.width);
-        const pixels = imageData.data;
-
-        if (mode !== 'monochrome') {
-            const brightnessData = new Float32Array(result.width * result.height);
-            for (let i = 0; i < brightnessData.length; i++) {
-                const pi = i * 4;
-                brightnessData[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
-            }
-
-            const html = applyColorToAscii(result.ascii, result.width, result.height, pixels, brightnessData);
-            if (html) {
-                asciiOutput.innerHTML = html;
-                lastColoredHtml = html;
-            }
-            asciiOutput.style.opacity = '';
-            asciiContainer.style.backgroundColor = '';
-        } else {
-            const baseOpacity = parseInt(globalOpacity.value) / 100;
-            const useBrightnessOpacity = brightnessOpacity.checked;
-
-            asciiContainer.style.backgroundColor = monoBg.value;
-
-            if (useBrightnessOpacity) {
-                const invert = invertBrightness.checked;
-                const fg = monoFg.value;
-                const fgR = parseInt(fg.slice(1, 3), 16);
-                const fgG = parseInt(fg.slice(3, 5), 16);
-                const fgB = parseInt(fg.slice(5, 7), 16);
-
-                const lines = result.ascii.split('\n');
-                const parts = [];
-                for (let y = 0; y < result.height; y++) {
-                    let currentOpacity = null;
-                    let currentChars = '';
-
-                    for (let x = 0; x < result.width; x++) {
-                        const char = lines[y] ? lines[y][x] : ' ';
-                        if (!char) continue;
-
-                        const pi = (y * result.width + x) * 4;
-                        let brightness = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
-                        if (invert) brightness = 1 - brightness;
-                        const opacity = (baseOpacity * (1 - brightness)).toFixed(2);
-
-                        if (opacity === currentOpacity) {
-                            currentChars += escapeHtml(char);
-                        } else {
-                            if (currentOpacity !== null) {
-                                parts.push(`<span style="color:rgba(${fgR},${fgG},${fgB},${currentOpacity})">${currentChars}</span>`);
-                            }
-                            currentOpacity = opacity;
-                            currentChars = escapeHtml(char);
-                        }
-                    }
-                    if (currentOpacity !== null) {
-                        parts.push(`<span style="color:rgba(${fgR},${fgG},${fgB},${currentOpacity})">${currentChars}</span>`);
-                    }
-                    parts.push('\n');
-                }
-                const html = parts.join('');
-                asciiOutput.innerHTML = html;
-                asciiOutput.style.opacity = '';
-                lastColoredHtml = html;
-            } else {
-                asciiOutput.style.color = monoFg.value;
-                asciiOutput.style.opacity = baseOpacity < 1 ? baseOpacity : '';
-                asciiOutput.innerHTML = '';
-                asciiOutput.textContent = result.ascii;
-                lastColoredHtml = '';
-            }
-        }
-
-        lastConversionTime = performance.now() - startTime;
-        outputInfo.textContent = `${result.width} × ${result.height} chars`;
-
-        // Update current ASCII dimensions for auto-fit
-        currentAsciiWidth = result.width;
-        currentAsciiHeight = result.height;
-
-        if (!isVideoPlaying) {
-            showLoading(false);
-            // Calculate auto-fit font size after conversion
-            calculateAutoFitFontSize();
-        }
-    }, 10);
-}
 
 // Apply color to ASCII output (pixels passed in to avoid duplicate getScaledImageData)
 // Optimized with Array.join() and span combining for adjacent same-color chars
@@ -2656,246 +2449,6 @@ function brightnessMapping(img) {
 
     return { ascii, width, height };
 }
-
-// Algorithm: Edge Detection (Sobel)
-function edgeDetection(img) {
-    const width = parseInt(charsPerRow.value);
-    const { imageData, height } = getScaledImageData(img, width);
-    const pixels = imageData.data;
-    const threshold = parseInt(edgeThreshold.value);
-    const invert = invertBrightness.checked;
-
-    // Convert to grayscale array
-    const gray = new Float32Array(width * height);
-    for (let i = 0; i < width * height; i++) {
-        const pi = i * 4;
-        gray[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
-    }
-
-    // Apply contrast pre-processing
-    applyContrast(gray);
-
-    // Scale to 0-255 for edge detection
-    for (let i = 0; i < gray.length; i++) {
-        gray[i] *= 255;
-    }
-
-    // Sobel kernels
-    const sobelX = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]];
-    const sobelY = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]];
-
-    let ascii = '';
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-            let gx = 0, gy = 0;
-
-            for (let ky = -1; ky <= 1; ky++) {
-                for (let kx = -1; kx <= 1; kx++) {
-                    const px = Math.min(width - 1, Math.max(0, x + kx));
-                    const py = Math.min(height - 1, Math.max(0, y + ky));
-                    const val = gray[py * width + px];
-                    gx += val * sobelX[ky + 1][kx + 1];
-                    gy += val * sobelY[ky + 1][kx + 1];
-                }
-            }
-
-            const magnitude = Math.sqrt(gx * gx + gy * gy);
-
-            if (magnitude < threshold) {
-                ascii += invert ? '#' : ' ';
-            } else {
-                // Determine edge direction
-                const angle = Math.atan2(gy, gx) * 180 / Math.PI;
-                let char;
-                if (angle >= -22.5 && angle < 22.5 || angle >= 157.5 || angle < -157.5) {
-                    char = '|'; // Vertical edge
-                } else if (angle >= 22.5 && angle < 67.5 || angle >= -157.5 && angle < -112.5) {
-                    char = '/';
-                } else if (angle >= 67.5 && angle < 112.5 || angle >= -112.5 && angle < -67.5) {
-                    char = '-'; // Horizontal edge
-                } else {
-                    char = '\\';
-                }
-                ascii += invert ? ' ' : char;
-            }
-        }
-        ascii += '\n';
-    }
-
-    return { ascii, width, height };
-}
-
-// Algorithm: Floyd-Steinberg Dithering
-function floydSteinbergDithering(img) {
-    const width = parseInt(charsPerRow.value);
-    const { imageData, height } = getScaledImageData(img, width);
-    const pixels = imageData.data;
-    let chars = customChars.value || CHAR_SETS.standard;
-    if (invertBrightness.checked) {
-        chars = chars.split('').reverse().join('');
-    }
-    const strength = parseInt(ditherStrength.value) / 100;
-
-    // Create brightness array
-    const brightness = new Float32Array(width * height);
-    for (let i = 0; i < width * height; i++) {
-        const pi = i * 4;
-        brightness[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
-    }
-
-    // Apply contrast pre-processing
-    applyContrast(brightness);
-
-    // Floyd-Steinberg dithering
-    const levels = chars.length;
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-            const i = y * width + x;
-            const oldVal = brightness[i];
-            const newVal = Math.round(oldVal * (levels - 1)) / (levels - 1);
-            brightness[i] = newVal;
-            const error = (oldVal - newVal) * strength;
-
-            if (x + 1 < width) brightness[i + 1] += error * 7 / 16;
-            if (y + 1 < height) {
-                if (x > 0) brightness[i + width - 1] += error * 3 / 16;
-                brightness[i + width] += error * 5 / 16;
-                if (x + 1 < width) brightness[i + width + 1] += error * 1 / 16;
-            }
-        }
-    }
-
-    // Convert to ASCII
-    let ascii = '';
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-            const val = Math.max(0, Math.min(1, brightness[y * width + x]));
-            const charIndex = Math.min(chars.length - 1, Math.floor(val * chars.length));
-            ascii += chars[charIndex];
-        }
-        ascii += '\n';
-    }
-
-    return { ascii, width, height };
-}
-
-// Algorithm: Block Pattern Matching
-function blockPatternMatching(img) {
-    const targetWidth = parseInt(charsPerRow.value);
-    const blockSize = parseInt(patternBlockSize.value);
-    const chars = patternChars.value || '@#$%&*oahkbdpqwm. ';
-    const invert = invertBrightness.checked;
-
-    // Pre-compute character patterns
-    const charPatterns = computeCharacterPatterns(chars, blockSize);
-
-    // Get image at higher resolution for block sampling
-    const sampleWidth = targetWidth * blockSize;
-    const ratio = getCharRatio();
-    const imgAspect = img.height / img.width;
-    const sampleHeight = Math.max(blockSize, Math.round(sampleWidth * imgAspect * ratio));
-    const outputHeight = Math.floor(sampleHeight / blockSize);
-
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    canvas.width = sampleWidth;
-    canvas.height = sampleHeight;
-    const source = img._source || img;
-    ctx.drawImage(source, 0, 0, sampleWidth, sampleHeight);
-    const imageData = ctx.getImageData(0, 0, sampleWidth, sampleHeight);
-    const pixels = imageData.data;
-
-    // Calculate all brightness values and apply contrast
-    const brightnessValues = new Float32Array(sampleWidth * sampleHeight);
-    for (let i = 0; i < sampleWidth * sampleHeight; i++) {
-        const pi = i * 4;
-        brightnessValues[i] = getBrightness(pixels[pi], pixels[pi + 1], pixels[pi + 2]);
-    }
-    applyContrast(brightnessValues);
-
-    let ascii = '';
-    for (let by = 0; by < outputHeight; by++) {
-        for (let bx = 0; bx < targetWidth; bx++) {
-            // Extract block brightness pattern
-            const blockPattern = [];
-            for (let y = 0; y < blockSize; y++) {
-                for (let x = 0; x < blockSize; x++) {
-                    const px = bx * blockSize + x;
-                    const py = by * blockSize + y;
-                    if (px < sampleWidth && py < sampleHeight) {
-                        let b = brightnessValues[py * sampleWidth + px];
-                        blockPattern.push(invert ? 1 - b : b);
-                    } else {
-                        blockPattern.push(invert ? 0 : 1);
-                    }
-                }
-            }
-
-            // Find best matching character
-            let bestChar = ' ';
-            let bestScore = Infinity;
-            for (const [char, pattern] of charPatterns) {
-                let score = 0;
-                for (let i = 0; i < blockPattern.length; i++) {
-                    const diff = blockPattern[i] - pattern[i];
-                    score += diff * diff;
-                }
-                if (score < bestScore) {
-                    bestScore = score;
-                    bestChar = char;
-                }
-            }
-            ascii += bestChar;
-        }
-        ascii += '\n';
-    }
-
-    return { ascii, width: targetWidth, height: outputHeight };
-}
-
-function computeCharacterPatterns(chars, blockSize) {
-    const patterns = new Map();
-
-    // Render at larger size for better quality, then downsample
-    const renderSize = 24;
-    const renderCanvas = document.createElement('canvas');
-    const renderCtx = renderCanvas.getContext('2d');
-    renderCanvas.width = renderSize;
-    renderCanvas.height = renderSize;
-
-    // Downsample canvas
-    const sampleCanvas = document.createElement('canvas');
-    const sampleCtx = sampleCanvas.getContext('2d', { willReadFrequently: true });
-    sampleCanvas.width = blockSize;
-    sampleCanvas.height = blockSize;
-
-    renderCtx.textBaseline = 'top';
-    renderCtx.textAlign = 'center';
-
-    for (const char of chars) {
-        // Render character at high resolution
-        renderCtx.fillStyle = 'white';
-        renderCtx.fillRect(0, 0, renderSize, renderSize);
-        renderCtx.fillStyle = 'black';
-        renderCtx.font = `${renderSize}px ${fontFamily.value}`;
-        renderCtx.fillText(char, renderSize / 2, 0);
-
-        // Downsample to block size
-        sampleCtx.fillStyle = 'white';
-        sampleCtx.fillRect(0, 0, blockSize, blockSize);
-        sampleCtx.drawImage(renderCanvas, 0, 0, blockSize, blockSize);
-
-        const imageData = sampleCtx.getImageData(0, 0, blockSize, blockSize);
-        const pattern = [];
-        for (let i = 0; i < imageData.data.length; i += 4) {
-            pattern.push(imageData.data[i] / 255); // Use red channel (grayscale)
-        }
-        patterns.set(char, pattern);
-    }
-
-    return patterns;
-}
-
 
 // Contrast pre-processing helper
 function applyContrast(brightness) {
