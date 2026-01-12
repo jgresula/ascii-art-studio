@@ -11,11 +11,37 @@
     <div class="container">
         <header>
             <h1>ASCII Art Converter</h1>
-            <p>Convert images and videos to ASCII art</p>
+            <p class="desktop-only">Convert images and videos to ASCII art</p>
         </header>
+
+        <!-- Mobile toolbar - hidden on desktop -->
+        <div class="mobile-toolbar">
+            <select id="mobile-preset" class="mobile-preset-select">
+                <!-- Synced with settings-preset -->
+            </select>
+            <button class="mobile-toolbar-btn" data-panel="image-source" title="Media">
+                <span class="icon">📁</span>
+            </button>
+            <button class="mobile-toolbar-btn" data-panel="display-settings" title="Display">
+                <span class="icon">⚙️</span>
+            </button>
+            <button class="mobile-toolbar-btn" data-panel="character-set" title="Characters">
+                <span class="icon">Aa</span>
+            </button>
+            <button class="mobile-toolbar-btn" data-panel="output-settings" title="Output">
+                <span class="icon">🎨</span>
+            </button>
+            <button class="mobile-toolbar-btn" data-panel="export" title="Export">
+                <span class="icon">📤</span>
+            </button>
+        </div>
+
+        <!-- Mobile panel overlay - hidden on desktop -->
+        <div class="mobile-panel-overlay" id="mobile-panel-overlay"></div>
 
         <div class="main-content">
             <aside class="controls">
+                <button class="mobile-panel-close" id="mobile-panel-close">✕</button>
                 <div class="control-section" data-section="image-source">
                     <h3>Media Source</h3>
                     <div class="section-content">

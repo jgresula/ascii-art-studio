@@ -658,8 +658,109 @@ function init() {
         sharePngBtn.style.display = '';
     }
 
+    // Setup mobile UI
+    setupMobileUI();
+
     // Auto-load default image
     loadDefaultImage();
+}
+
+// Mobile UI handling
+function setupMobileUI() {
+    const mobileToolbarBtns = document.querySelectorAll('.mobile-toolbar-btn');
+    const mobilePreset = document.getElementById('mobile-preset');
+    const mobilePanelOverlay = document.getElementById('mobile-panel-overlay');
+    const mobilePanelClose = document.getElementById('mobile-panel-close');
+    const controls = document.querySelector('.controls');
+
+    // Sync mobile preset with main preset dropdown
+    function syncMobilePreset() {
+        if (!mobilePreset) return;
+        mobilePreset.innerHTML = settingsPreset.innerHTML;
+        mobilePreset.value = settingsPreset.value;
+    }
+
+    // Initial sync
+    syncMobilePreset();
+
+    // Watch for changes to main preset and sync
+    settingsPreset.addEventListener('change', syncMobilePreset);
+
+    // Mobile preset change handler
+    if (mobilePreset) {
+        mobilePreset.addEventListener('change', () => {
+            settingsPreset.value = mobilePreset.value;
+            handleSettingsPresetChange();
+            syncMobilePreset();
+        });
+    }
+
+    // Open panel when toolbar button clicked
+    mobileToolbarBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const panelId = btn.dataset.panel;
+            openMobilePanel(panelId);
+        });
+    });
+
+    // Close panel handlers
+    if (mobilePanelOverlay) {
+        mobilePanelOverlay.addEventListener('click', closeMobilePanel);
+    }
+    if (mobilePanelClose) {
+        mobilePanelClose.addEventListener('click', closeMobilePanel);
+    }
+
+    function openMobilePanel(panelId) {
+        // Remove active from all sections
+        document.querySelectorAll('.control-section').forEach(s => {
+            s.classList.remove('mobile-active');
+        });
+
+        // Find and activate the target section
+        const targetSection = document.querySelector(`.control-section[data-section="${panelId}"]`);
+        if (targetSection) {
+            targetSection.classList.add('mobile-active');
+        }
+
+        // Show the controls panel and overlay
+        if (controls) {
+            controls.classList.add('mobile-panel-open');
+        }
+        if (mobilePanelOverlay) {
+            mobilePanelOverlay.classList.add('visible');
+        }
+        if (mobilePanelClose) {
+            mobilePanelClose.classList.add('visible');
+        }
+
+        // Highlight active toolbar button
+        mobileToolbarBtns.forEach(b => b.classList.remove('active'));
+        document.querySelector(`.mobile-toolbar-btn[data-panel="${panelId}"]`)?.classList.add('active');
+    }
+
+    function closeMobilePanel() {
+        if (controls) {
+            controls.classList.remove('mobile-panel-open');
+        }
+        if (mobilePanelOverlay) {
+            mobilePanelOverlay.classList.remove('visible');
+        }
+        if (mobilePanelClose) {
+            mobilePanelClose.classList.remove('visible');
+        }
+        document.querySelectorAll('.control-section').forEach(s => {
+            s.classList.remove('mobile-active');
+        });
+        mobileToolbarBtns.forEach(b => b.classList.remove('active'));
+    }
+
+    // Close panel on escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && controls?.classList.contains('mobile-panel-open')) {
+            closeMobilePanel();
+        }
+    });
 }
 
 function setupSectionToggles() {
