@@ -1352,25 +1352,15 @@ function calculateAutoFitFontSize() {
     // Calculate font size needed to fit height
     const fontSizeForHeight = containerHeight / (currentAsciiHeight * charHeightRatio);
 
-    // Calculate aspect ratios to decide which dimension to fit
-    const outputAspect = (currentAsciiWidth * charWidthRatio) / (currentAsciiHeight * charHeightRatio);
-    const containerAspect = containerWidth / containerHeight;
-
-    // Choose the constraining dimension
-    let optimalFontSize;
-    if (outputAspect > containerAspect) {
-        // Output is wider relative to container - fit width
-        optimalFontSize = fontSizeForWidth;
-    } else {
-        // Output is taller relative to container - fit height
-        optimalFontSize = fontSizeForHeight;
-    }
+    // Use the smaller font size to ensure output fits within container
+    // This prevents horizontal overflow which causes page-level scrollbars
+    let optimalFontSize = Math.min(fontSizeForWidth, fontSizeForHeight);
 
     // Clamp to bounds
     optimalFontSize = Math.max(AUTO_FIT_FONT_MIN, Math.min(AUTO_FIT_FONT_MAX, optimalFontSize));
 
-    // Round to integer for slider compatibility
-    optimalFontSize = Math.round(optimalFontSize);
+    // Floor to avoid subpixel overflow
+    optimalFontSize = Math.floor(optimalFontSize);
 
     // Update the font size slider and display
     fontSize.value = optimalFontSize;
