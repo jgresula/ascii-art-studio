@@ -912,7 +912,7 @@
                             <div class="setting-value"><span id="global-opacity-value">100</span>%</div>
                         </div>
 
-                        <div class="setting-row">
+                        <div class="setting-row" style="white-space: nowrap;">
                             <input type="checkbox" id="brightness-opacity">
                             <label for="brightness-opacity" style="margin: 0;">Brightness as opacity</label>
                         </div>
@@ -933,6 +933,7 @@
                         <div class="copy-buttons" id="gif-export-controls" style="margin-top: 8px; display: none;">
                             <button class="btn btn-primary" id="download-gif-btn">Record GIF</button>
                             <button class="btn btn-primary" id="download-video-btn">Record Video</button>
+                            <button class="btn btn-secondary" id="video-preferences-btn" title="Video Preferences">⚙</button>
                             <span id="gif-status" style="font-size: 12px; color: var(--text-muted);"></span>
                         </div>
                     </div>
@@ -970,7 +971,7 @@
     <div class="modal-overlay" id="video-settings-modal">
         <div class="modal">
             <div class="modal-header">
-                <h3>Video Recording Settings</h3>
+                <h3>Preferences</h3>
                 <button class="modal-close" id="modal-close">&times;</button>
             </div>
             <div class="modal-body">
@@ -1010,8 +1011,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" id="modal-cancel">Cancel</button>
-                <button class="btn btn-primary" id="modal-start-recording">Start Recording</button>
+                <button class="btn btn-primary" id="modal-close-save">Close</button>
             </div>
         </div>
     </div>
@@ -1497,8 +1497,8 @@
         // Video settings modal elements
         const videoSettingsModal = document.getElementById('video-settings-modal');
         const modalClose = document.getElementById('modal-close');
-        const modalCancel = document.getElementById('modal-cancel');
-        const modalStartRecording = document.getElementById('modal-start-recording');
+        const modalCloseSave = document.getElementById('modal-close-save');
+        const videoPreferencesBtn = document.getElementById('video-preferences-btn');
         const videoFormatSelect = document.getElementById('video-format');
         const videoQualitySelect = document.getElementById('video-quality');
         const videoFramerateSelect = document.getElementById('video-framerate');
@@ -1904,15 +1904,17 @@
                 if (isRecordingVideo) {
                     stopVideoRecording();
                 } else {
-                    showVideoSettingsModal();
+                    startVideoRecording();
                 }
             });
 
+            // Video preferences button
+            videoPreferencesBtn.addEventListener('click', showVideoSettingsModal);
+
             // Video settings modal handlers
             modalClose.addEventListener('click', hideVideoSettingsModal);
-            modalCancel.addEventListener('click', hideVideoSettingsModal);
-            modalStartRecording.addEventListener('click', () => {
-                // Read settings from modal
+            modalCloseSave.addEventListener('click', () => {
+                // Save settings from modal
                 videoSettings.format = videoFormatSelect.value;
                 videoSettings.quality = videoQualitySelect.value;
                 videoSettings.framerate = parseInt(videoFramerateSelect.value);
@@ -1920,7 +1922,6 @@
                 videoMaxDuration = videoSettings.duration * 1000;
 
                 hideVideoSettingsModal();
-                startVideoRecording();
             });
             videoSettingsModal.addEventListener('click', (e) => {
                 // Close on overlay click
@@ -2706,15 +2707,6 @@
 
         // Video Settings Modal
         function showVideoSettingsModal() {
-            if (!isVideoPlaying) {
-                showToast('Play the video first to record');
-                return;
-            }
-            if (asciiCanvas.style.display === 'none' || asciiCanvas.width === 0) {
-                showToast('Canvas not ready for recording');
-                return;
-            }
-
             // Update format options based on browser support
             updateFormatOptions();
 
