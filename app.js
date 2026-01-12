@@ -1086,6 +1086,10 @@ function setupEventListeners() {
         // Don't trigger if clicking on buttons or controls inside
         if (e.target.closest('button') || e.target.closest('a')) return;
 
+        // Ignore clicks when mobile panel is open (click will close the panel instead)
+        const controls = document.querySelector('.controls');
+        if (controls?.classList.contains('mobile-panel-open')) return;
+
         // Ignore clicks that happen right after closing a popup (prevents ghost clicks on mobile)
         if (Date.now() - popupCloseTime < 300) return;
 
