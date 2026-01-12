@@ -723,12 +723,9 @@ function setupMobileUI() {
             targetSection.classList.add('mobile-active');
         }
 
-        // Show the controls panel and overlay
+        // Show the controls panel
         if (controls) {
             controls.classList.add('mobile-panel-open');
-        }
-        if (mobilePanelOverlay) {
-            mobilePanelOverlay.classList.add('visible');
         }
         if (mobilePanelClose) {
             mobilePanelClose.classList.add('visible');
@@ -742,9 +739,6 @@ function setupMobileUI() {
     function closeMobilePanel() {
         if (controls) {
             controls.classList.remove('mobile-panel-open');
-        }
-        if (mobilePanelOverlay) {
-            mobilePanelOverlay.classList.remove('visible');
         }
         if (mobilePanelClose) {
             mobilePanelClose.classList.remove('visible');
