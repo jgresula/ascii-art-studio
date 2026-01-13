@@ -47,13 +47,21 @@ header {
     margin-bottom: 30px;
 }
 
+.header-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
 header h1 {
     font-size: 2rem;
-    margin-bottom: 8px;
+    margin-bottom: 0;
 }
 
 header p {
     color: var(--text-secondary);
+    margin-top: 8px;
 }
 
 .main-content {
@@ -169,13 +177,10 @@ header p {
 
 /* GitHub link */
 .github-link {
-    position: fixed;
-    top: 12px;
-    right: 12px;
-    z-index: 10000;
-    color: var(--text-secondary);
-    opacity: 0.6;
+    color: var(--text-primary);
+    opacity: 0.7;
     transition: opacity 0.2s;
+    display: flex;
 }
 
 .github-link:hover {
