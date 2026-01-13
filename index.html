@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASCII Art Studio</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-row">
+                <h1>ASCII Art Studio</h1>
+                <a href="https://github.com/jgresula/ascii-art-studio/" target="_blank" class="github-link" title="View on GitHub">
+                    <svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                    GitHub
+                </a>
+            </div>
+            <p class="desktop-only">Convert images and videos to ASCII art</p>
+        </header>
+
+        <!-- Mobile toolbar - hidden on desktop -->
+        <div class="mobile-toolbar">
+            <select id="mobile-preset" class="mobile-preset-select">
+                <!-- Synced with settings-preset -->
+            </select>
+            <button class="mobile-toolbar-btn" data-panel="image-source" title="Media">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8" cy="8" r="2"/><path d="M22 15l-5-5L5 22"/><path d="M16 5l3 3-3 3"/></svg>
+            </button>
+            <button class="mobile-toolbar-btn" data-panel="display-settings" title="Display">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            </button>
+            <button class="mobile-toolbar-btn" data-panel="character-set" title="Characters">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
+            </button>
+            <button class="mobile-toolbar-btn" data-panel="output-settings" title="Output">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+            </button>
+            <button class="mobile-toolbar-btn" data-panel="export" title="Export">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </button>
+        </div>
+
+        <!-- Mobile panel overlay - hidden on desktop -->
+        <div class="mobile-panel-overlay" id="mobile-panel-overlay"></div>
+
+        <div class="main-content">
+            <aside class="controls">
+                <button class="mobile-panel-close" id="mobile-panel-close">✕</button>
+                <div class="control-section" data-section="image-source">
+                    <h3>Media Source</h3>
+                    <div class="section-content">
+                        <div class="media-input-row">
+                            <div class="drop-zone" id="drop-zone" title="Drag files, paste images/screenshots (Ctrl+V), or paste image URLs">
+                                <div class="drop-zone-text">
+                                    <strong class="drop-zone-desktop">Drop or paste</strong>
+                                    <strong class="drop-zone-mobile">Tap to select</strong>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">images • videos • URLs</div>
+                                </div>
+                            </div>
+                            <input type="file" id="file-input" accept="image/*,video/*">
+                            <div class="context-menu" id="dropzone-context-menu">
+                                <button class="context-menu-item" id="context-paste">Paste</button>
+                                <button class="context-menu-item" id="context-browse">Browse files...</button>
+                            </div>
+
+                            <div class="preview-section">
+                                <img id="image-preview" alt="Preview">
+                                <video id="video-preview" muted playsinline></video>
+                                <div id="no-preview">No media loaded</div>
+                            </div>
+                        </div>
+
+                        <div class="video-controls" id="video-controls" style="display: none; margin-top: 12px;">
+                            <div class="copy-buttons" style="margin-bottom: 8px;">
+                                <button class="btn btn-secondary" id="video-play-btn">▶ Play</button>
+                                <button class="btn btn-secondary" id="video-pause-btn" style="display: none;">⏸ Pause</button>
+                                <button class="btn btn-secondary" id="video-stop-btn">⏹ Stop</button>
+                            </div>
+                            <div class="setting-row" style="margin-bottom: 8px;">
+                                <input type="range" id="video-seek" min="0" max="100" value="0" style="flex: 1;">
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: var(--text-secondary);">
+                                <span id="video-time">0:00 / 0:00</span>
+                                <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                                    <input type="checkbox" id="video-loop"> Loop
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="webcam-section" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+                            <div class="copy-buttons">
+                                <button class="btn btn-secondary" id="webcam-start-btn">Webcam</button>
+                                <button class="btn btn-secondary" id="webcam-stop-btn" style="display: none;">⏹ Stop</button>
+                            </div>
+                            <div class="webcam-controls" id="webcam-controls" style="display: none; margin-top: 12px;">
+                                <div class="setting-row" style="margin-bottom: 8px;">
+                                    <label for="webcam-select">Camera</label>
+                                    <select id="webcam-select">
+                                        <option value="">Default</option>
+                                    </select>
+                                </div>
+                                <div class="setting-row">
+                                    <div class="checkbox-row">
+                                        <input type="checkbox" id="webcam-mirror" checked>
+                                        <label for="webcam-mirror" style="margin: 0;">Mirror</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-section" data-section="settings-presets">
+                    <h3>Settings Presets</h3>
+                    <div class="section-content">
+                        <div class="setting-row">
+                            <label for="settings-preset">Preset</label>
+                            <div class="inline-group">
+                                <select id="settings-preset" style="flex: 1;">
+                                    <!-- Populated dynamically -->
+                                </select>
+                                <button class="btn btn-secondary btn-small" id="save-settings-preset-btn" title="Save current settings as preset">Save</button>
+                                <button class="btn btn-secondary btn-small" id="delete-settings-preset-btn" title="Delete selected custom preset" style="display: none;">Del</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-section" data-section="display-settings">
+                    <h3>Display Settings</h3>
+                    <div class="section-content">
+                        <div class="setting-row">
+                            <label for="chars-per-row">Characters per row</label>
+                            <input type="range" id="chars-per-row" min="20" max="300" value="100">
+                            <div class="setting-value"><span id="chars-value">100</span></div>
+                        </div>
+
+                        <div class="setting-row">
+                            <label for="font-size" style="display: flex; align-items: center; gap: 6px;">
+                                <span>Font Size</span>
+                                <span style="font-weight: normal; color: var(--text-secondary); display: inline-flex; align-items: center;">(<input type="checkbox" id="auto-fit-font" style="margin: 0 4px 0 0;"><span style="cursor: pointer;" onclick="document.getElementById('auto-fit-font').click()">auto-fit</span>)</span>
+                            </label>
+                            <input type="range" id="font-size" min="4" max="48" value="10">
+                            <div class="setting-value"><span id="font-size-value">10</span>px</div>
+                        </div>
+
+                        <div class="setting-row">
+                            <label for="font-family">Font</label>
+                            <select id="font-family">
+                                <!-- Populated dynamically based on available fonts -->
+                            </select>
+                        </div>
+
+                        <div class="setting-row">
+                            <label for="char-ratio" style="display: flex; align-items: center; gap: 6px;">
+                                <span>Char Ratio</span>
+                                <span style="font-weight: normal; color: var(--text-secondary); display: inline-flex; align-items: center;">(<input type="checkbox" id="auto-ratio" checked style="margin: 0 4px 0 0;"><span style="cursor: pointer;" onclick="document.getElementById('auto-ratio').click()">auto</span>)</span>
+                            </label>
+                            <input type="range" id="char-ratio" step="0.05" min="0.3" max="1.0" value="0.5">
+                            <div class="setting-value"><span id="char-ratio-value">0.5</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-section" data-section="character-set">
+                    <h3>Character Set</h3>
+                    <div class="section-content">
+                        <div class="setting-row">
+                            <label for="char-set">Preset</label>
+                            <div class="inline-group">
+                                <select id="char-set" style="flex: 1;">
+                                    <optgroup label="Built-in">
+                                        <option value="standard">Standard</option>
+                                        <option value="detailed">Detailed</option>
+                                        <option value="blocks">Blocks</option>
+                                        <option value="simple">Simple</option>
+                                    </optgroup>
+                                    <optgroup label="Custom" id="char-set-custom-group">
+                                    </optgroup>
+                                </select>
+                                <button class="btn btn-secondary btn-small" id="save-chars-btn" title="Save current characters as preset">Save</button>
+                                <button class="btn btn-secondary btn-small" id="delete-chars-btn" title="Delete selected custom preset" style="display: none;">Del</button>
+                            </div>
+                        </div>
+                        <div class="setting-row">
+                            <label for="custom-chars">Characters (dark to light)</label>
+                            <input type="text" id="custom-chars" value="@%#+=*-:. " placeholder="Characters dark to light" autocomplete="off" spellcheck="false">
+                        </div>
+                        <div class="setting-row">
+                            <div class="inline-group">
+                                <button class="btn btn-secondary btn-small" id="sort-chars-btn" title="Sort characters by visual brightness">Sort</button>
+                                <label for="reduce-count" style="margin: 0; white-space: nowrap;">Reduce to</label>
+                                <input type="number" id="reduce-count" min="0" max="100" value="0" style="width: 60px;" title="0 = no reduction">
+                                <span style="font-size: 0.85rem; color: var(--text-secondary);">chars</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-section" data-section="output-settings">
+                    <h3>Output Settings</h3>
+                    <div class="section-content">
+                        <div class="setting-row">
+                            <label for="color-mode">Color Mode</label>
+                            <select id="color-mode">
+                                <option value="monochrome">Monochrome</option>
+                                <option value="truecolor">True color</option>
+                                <option value="adaptive4">Adaptive 4 colors</option>
+                                <option value="adaptive8">Adaptive 8 colors</option>
+                                <option value="adaptive16">Adaptive 16 colors</option>
+                                <option value="adaptive64">Adaptive 64 colors</option>
+                                <option value="adaptive128">Adaptive 128 colors</option>
+                                <option value="adaptive256">Adaptive 256 colors</option>
+                                <option value="ansi256">ANSI 256 colors</option>
+                            </select>
+                        </div>
+
+                        <div class="setting-row">
+                            <label for="output-background">Background</label>
+                            <select id="output-background">
+                                <option value="dark">Dark</option>
+                                <option value="light">Light</option>
+                            </select>
+                        </div>
+
+                        <div class="setting-row mono-settings">
+                            <label>Colors</label>
+                            <div class="inline-group">
+                                <input type="color" id="mono-fg" value="#f0f0f0" title="Foreground">
+                                <span style="font-size: 0.85rem; color: var(--text-secondary);">FG</span>
+                                <input type="color" id="mono-bg" value="#0d0d0d" title="Background">
+                                <span style="font-size: 0.85rem; color: var(--text-secondary);">BG</span>
+                            </div>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="checkbox-row">
+                                <input type="checkbox" id="invert-brightness">
+                                <label for="invert-brightness" style="margin: 0;">Invert brightness</label>
+                            </div>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="checkbox-row">
+                                <input type="checkbox" id="contrast-histogram">
+                                <label for="contrast-histogram" style="margin: 0;">Histogram equalization</label>
+                            </div>
+                        </div>
+
+                        <div class="setting-row">
+                            <label for="contrast-amount">Contrast</label>
+                            <input type="range" id="contrast-amount" min="50" max="400" value="100">
+                            <div class="setting-value"><span id="contrast-amount-value">100</span>%</div>
+                        </div>
+
+                        <div class="setting-row color-slider">
+                            <label for="brightness-blend">Brightness blend</label>
+                            <input type="range" id="brightness-blend" min="0" max="100" value="50">
+                            <div class="setting-value"><span id="brightness-blend-value">50</span>%</div>
+                        </div>
+
+                        <div class="setting-row color-slider">
+                            <label for="color-saturation">Saturation</label>
+                            <input type="range" id="color-saturation" min="0" max="200" value="100">
+                            <div class="setting-value"><span id="color-saturation-value">100</span>%</div>
+                        </div>
+
+                        <div class="setting-row">
+                            <label for="global-opacity">Opacity</label>
+                            <input type="range" id="global-opacity" min="5" max="100" value="100">
+                            <div class="setting-value"><span id="global-opacity-value">100</span>%</div>
+                        </div>
+
+                        <div class="setting-row">
+                            <div class="checkbox-row">
+                                <input type="checkbox" id="brightness-opacity">
+                                <label for="brightness-opacity" style="margin: 0;">Brightness as opacity</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-section" data-section="export">
+                    <h3>Export</h3>
+                    <div class="section-content">
+                        <div class="copy-buttons">
+                            <button class="btn btn-secondary" id="copy-text-btn">Copy Text</button>
+                            <button class="btn btn-secondary" id="copy-html-btn">Copy HTML</button>
+                        </div>
+                        <div class="copy-buttons" style="margin-top: 8px;">
+                            <button class="btn btn-secondary" id="copy-markdown-btn">Copy Markdown</button>
+                            <button class="btn btn-secondary" id="download-png-btn">Download PNG</button>
+                            <button class="btn btn-secondary" id="share-png-btn" style="display: none;">Share</button>
+                        </div>
+                        <div class="copy-buttons" id="gif-export-controls" style="margin-top: 8px; display: none;">
+                            <button class="btn btn-secondary" id="download-gif-btn">Record GIF</button>
+                            <button class="btn btn-secondary" id="download-video-btn">Record Video</button>
+                            <button class="btn btn-secondary" id="video-preferences-btn" title="Video Preferences">⚙</button>
+                            <span id="gif-status" style="font-size: 12px; color: var(--text-muted);"></span>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <main class="output-area">
+                <div class="output-header">
+                    <span class="output-info" id="output-info"></span>
+                    <div class="mobile-playback-controls" id="mobile-playback-controls" style="display: none;">
+                        <button class="btn btn-secondary btn-small" id="mobile-pause-btn" title="Pause">⏸</button>
+                        <button class="btn btn-secondary btn-small" id="mobile-play-btn" title="Play" style="display: none;">▶</button>
+                        <button class="btn btn-secondary btn-small" id="mobile-stop-btn" title="Stop">⏹</button>
+                    </div>
+                    <span class="output-info" id="video-fps" style="display: none;"></span>
+                </div>
+
+                <div class="ascii-container">
+                    <div class="placeholder-message" id="placeholder">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5; margin-bottom: 12px;"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8" cy="8" r="2"/><path d="M22 15l-5-5L5 22"/></svg>
+                        <div>Loading...</div>
+                    </div>
+                    <div id="ascii-output"></div>
+                    <canvas id="ascii-canvas" style="display: none;"></canvas>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- Video Settings Modal -->
+    <div class="modal-overlay" id="video-settings-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Preferences</h3>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-group">
+                    <label>Format</label>
+                    <select id="video-format">
+                        <option value="webm-vp9">WebM (VP9) - Best quality</option>
+                        <option value="webm-vp8">WebM (VP8) - Compatible</option>
+                        <option value="mp4">MP4 (H.264) - Safari</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label>Quality</label>
+                    <select id="video-quality">
+                        <option value="high">High (8 Mbps)</option>
+                        <option value="medium" selected>Medium (5 Mbps)</option>
+                        <option value="low">Low (2 Mbps)</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label>Frame Rate</label>
+                    <select id="video-framerate">
+                        <option value="60">60 FPS</option>
+                        <option value="30" selected>30 FPS</option>
+                        <option value="24">24 FPS (Cinematic)</option>
+                        <option value="15">15 FPS (Small file)</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label>Max Duration</label>
+                    <select id="video-duration">
+                        <option value="10">10 seconds</option>
+                        <option value="30" selected>30 seconds</option>
+                        <option value="60">60 seconds</option>
+                        <option value="120">2 minutes</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="modal-close-save">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
