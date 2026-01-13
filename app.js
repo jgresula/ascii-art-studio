@@ -1026,6 +1026,22 @@ const debouncedConvert = adaptiveDebounce(() => {
 });
 
 function setupEventListeners() {
+    // Temporary: Heading style selector
+    const headingStyleSelect = document.getElementById('heading-style-select');
+    if (headingStyleSelect) {
+        headingStyleSelect.addEventListener('change', () => {
+            // Remove all heading style classes
+            document.body.classList.remove(
+                'heading-style-a', 'heading-style-b', 'heading-style-c',
+                'heading-style-d', 'heading-style-e', 'heading-style-f'
+            );
+            // Add selected style class
+            if (headingStyleSelect.value) {
+                document.body.classList.add(headingStyleSelect.value);
+            }
+        });
+    }
+
     // Drop zone
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('dragover', handleDragOver);

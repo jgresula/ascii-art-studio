@@ -157,6 +157,86 @@ header p {
     display: none;
 }
 
+/* Heading Style Options (temporary - for preview) */
+
+/* Option A: Bottom border */
+.heading-style-a .control-section h3 {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+/* Option B: Background highlight */
+.heading-style-b .control-section h3 {
+    background: var(--bg-secondary);
+    margin-left: -12px;
+    margin-right: -12px;
+    padding: 8px 12px;
+    border-radius: 4px;
+}
+
+/* Option C: Left accent bar */
+.heading-style-c .control-section h3 {
+    border-left: 3px solid var(--accent-color);
+    padding-left: 10px;
+    margin-left: -2px;
+}
+
+/* Option D: Bolder typography */
+.heading-style-d .control-section h3 {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 0.3px;
+}
+
+/* Option E: Top + bottom borders */
+.heading-style-e .control-section h3 {
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    padding: 8px 0;
+    margin-top: -1px;
+}
+
+/* Option F: Background + rounded pill */
+.heading-style-f .control-section h3 {
+    background: var(--bg-secondary);
+    padding: 6px 12px;
+    border-radius: 20px;
+    margin-left: -12px;
+    margin-right: -12px;
+}
+
+/* Style selector (temporary) */
+.style-selector {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 10000;
+    background: var(--bg-primary);
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+}
+
+.style-selector label {
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.style-selector select {
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+}
+
 /* Color inputs */
 input[type="color"] {
     width: 32px;
