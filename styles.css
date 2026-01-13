@@ -157,6 +157,10 @@ header p {
 
 .control-section .section-content {
     transition: opacity 0.2s ease;
+    padding: 12px;
+    background: var(--bg-primary);
+    border-radius: 8px;
+    margin-top: 8px;
 }
 
 .control-section.collapsed .section-content {
