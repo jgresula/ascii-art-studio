@@ -16,6 +16,8 @@ A web-based tool that converts images and videos into ASCII art in real-time. Up
 - **Flexible export options** - Copy as text, HTML, or Markdown; download as PNG; record animated GIFs or videos
 - **Mobile-friendly** - Responsive design with touch-optimized controls
 
+![ascii art example](https://raw.githubusercontent.com/jgresula/ascii-art-studio/refs/heads/main/ascii-art-example.png)
+
 ## Settings Guide
 
 ### Media Source
