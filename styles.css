@@ -452,6 +452,11 @@ input[type="color"] {
     color: var(--text-secondary);
 }
 
+/* Mobile playback controls - hidden on desktop */
+.mobile-playback-controls {
+    display: none;
+}
+
 .ascii-container {
     flex: 1;
     border-radius: 8px;
@@ -911,6 +916,17 @@ input[type="color"] {
 
     .output-header h2 {
         font-size: 1rem;
+    }
+
+    /* Mobile playback controls */
+    .mobile-playback-controls {
+        display: flex;
+        gap: 6px;
+    }
+
+    .mobile-playback-controls .btn {
+        padding: 6px 12px;
+        font-size: 0.85rem;
     }
 
     /* Bottom-align ASCII output on mobile for visibility during settings */

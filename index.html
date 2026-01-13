@@ -66,7 +66,7 @@
                             </div>
                         </div>
 
-                        <div class="video-controls" id="video-controls" style="display: none;">
+                        <div class="video-controls" id="video-controls" style="display: none; margin-top: 12px;">
                             <div class="copy-buttons" style="margin-bottom: 8px;">
                                 <button class="btn btn-secondary" id="video-play-btn">▶ Play</button>
                                 <button class="btn btn-secondary" id="video-pause-btn" style="display: none;">⏸ Pause</button>
@@ -301,6 +301,11 @@
             <main class="output-area">
                 <div class="output-header">
                     <span class="output-info" id="output-info"></span>
+                    <div class="mobile-playback-controls" id="mobile-playback-controls" style="display: none;">
+                        <button class="btn btn-secondary btn-small" id="mobile-pause-btn" title="Pause">⏸</button>
+                        <button class="btn btn-secondary btn-small" id="mobile-play-btn" title="Play" style="display: none;">▶</button>
+                        <button class="btn btn-secondary btn-small" id="mobile-stop-btn" title="Stop">⏹</button>
+                    </div>
                     <span class="output-info" id="video-fps" style="display: none;"></span>
                 </div>
 

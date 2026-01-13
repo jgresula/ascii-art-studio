@@ -481,6 +481,13 @@ const webcamStopBtn = document.getElementById('webcam-stop-btn');
 const webcamControls = document.getElementById('webcam-controls');
 const webcamSelect = document.getElementById('webcam-select');
 const webcamMirror = document.getElementById('webcam-mirror');
+
+// Mobile playback controls (in output header)
+const mobilePlaybackControls = document.getElementById('mobile-playback-controls');
+const mobilePauseBtn = document.getElementById('mobile-pause-btn');
+const mobilePlayBtn = document.getElementById('mobile-play-btn');
+const mobileStopBtn = document.getElementById('mobile-stop-btn');
+
 const charsPerRow = document.getElementById('chars-per-row');
 const charsValue = document.getElementById('chars-value');
 const asciiOutput = document.getElementById('ascii-output');
@@ -792,6 +799,60 @@ function setupMobileUI() {
     });
 }
 
+// Global helper to close mobile panel from anywhere (e.g., when starting video/webcam)
+function closeMobilePanelGlobal() {
+    const controls = document.querySelector('.controls');
+    const mobilePanelClose = document.getElementById('mobile-panel-close');
+    const mobilePanelOverlay = document.getElementById('mobile-panel-overlay');
+    if (controls) {
+        controls.classList.remove('mobile-panel-open');
+    }
+    if (mobilePanelClose) {
+        mobilePanelClose.classList.remove('visible');
+    }
+    if (mobilePanelOverlay) {
+        mobilePanelOverlay.classList.remove('visible');
+    }
+    document.querySelectorAll('.control-section').forEach(s => {
+        s.classList.remove('mobile-active');
+    });
+    document.querySelectorAll('.mobile-toolbar-btn').forEach(b => {
+        b.classList.remove('active');
+    });
+}
+
+// Update mobile playback controls visibility based on current state
+function updateMobilePlaybackControls() {
+    if (!mobilePlaybackControls) return;
+
+    // Show controls when video/webcam is active
+    if (isWebcamActive) {
+        // Webcam mode - show pause (acts as stop) and stop buttons
+        mobilePlaybackControls.style.display = '';
+        mobilePauseBtn.style.display = '';
+        mobilePauseBtn.textContent = '⏹';
+        mobilePauseBtn.title = 'Stop Webcam';
+        mobilePlayBtn.style.display = 'none';
+        mobileStopBtn.style.display = 'none'; // Single stop button for webcam
+    } else if (isVideoMode && currentVideo) {
+        // Video mode
+        mobilePlaybackControls.style.display = '';
+        mobileStopBtn.style.display = '';
+        if (isVideoPlaying) {
+            mobilePauseBtn.style.display = '';
+            mobilePauseBtn.textContent = '⏸';
+            mobilePauseBtn.title = 'Pause';
+            mobilePlayBtn.style.display = 'none';
+        } else {
+            mobilePauseBtn.style.display = 'none';
+            mobilePlayBtn.style.display = '';
+        }
+    } else {
+        // No video/webcam active
+        mobilePlaybackControls.style.display = 'none';
+    }
+}
+
 function setupSectionToggles() {
     const sections = document.querySelectorAll('.control-section[data-section]');
     const savedStatesStr = localStorage.getItem('ascii-sections');
@@ -1079,6 +1140,38 @@ function setupEventListeners() {
         }
     });
     webcamMirror.addEventListener('change', updateWebcamMirror);
+
+    // Mobile playback controls (in output header)
+    mobilePauseBtn.addEventListener('click', () => {
+        if (isWebcamActive) {
+            stopWebcam();
+        } else {
+            pauseVideo();
+        }
+        updateMobilePlaybackControls();
+    });
+    mobilePlayBtn.addEventListener('click', () => {
+        playVideo();
+        updateMobilePlaybackControls();
+    });
+    mobileStopBtn.addEventListener('click', () => {
+        if (isWebcamActive) {
+            stopWebcam();
+        } else {
+            stopVideo();
+            // Keep video mode for files (same behavior as sidebar stop button)
+            if (videoPreview.src) {
+                isVideoMode = true;
+                currentVideo = videoPreview;
+                videoControls.style.display = 'block';
+                videoPreview.style.display = 'block';
+                gifExportControls.style.display = 'flex';
+                videoPreview.currentTime = 0;
+                updateVideoTime();
+            }
+        }
+        updateMobilePlaybackControls();
+    });
 
     // Click on ASCII output to toggle play/pause for video/webcam
     const asciiContainer = asciiOutput.parentElement;
@@ -1773,6 +1866,9 @@ function playVideo() {
     asciiOutput.parentElement.style.userSelect = 'none';
     asciiOutput.parentElement.style.cursor = 'pointer';
     videoAnimationId = requestAnimationFrame(videoPlaybackLoop);
+    // Close mobile panel and update controls
+    closeMobilePanelGlobal();
+    updateMobilePlaybackControls();
 }
 
 function pauseVideo() {
@@ -1781,7 +1877,7 @@ function pauseVideo() {
     isVideoPlaying = false;
     videoPlayBtn.style.display = '';
     videoPauseBtn.style.display = 'none';
-    videoFps.style.display = 'none';
+    videoFps.textContent = 'Paused';
     // Restore selectability when paused, keep pointer cursor for click-to-play
     asciiOutput.parentElement.style.userSelect = '';
     asciiOutput.parentElement.style.cursor = 'pointer';
@@ -1791,6 +1887,7 @@ function pauseVideo() {
     }
     // Re-render current frame in HTML mode for copy/paste support
     convertToAscii();
+    updateMobilePlaybackControls();
 }
 
 function stopVideo() {
@@ -1824,6 +1921,7 @@ function stopVideo() {
     gifExportControls.style.display = 'none';
     // Switch back to HTML mode
     setCanvasMode(false);
+    updateMobilePlaybackControls();
 }
 
 function seekVideo(time) {
@@ -1902,6 +2000,10 @@ async function startWebcam() {
         needsInitialAutoFit = true; // Trigger auto-fit on first frame
         webcamAnimationId = requestAnimationFrame(webcamCaptureLoop);
 
+        // Close mobile panel and update controls
+        closeMobilePanelGlobal();
+        updateMobilePlaybackControls();
+
         showToast('Webcam started');
     } catch (err) {
         console.error('Webcam error:', err);
@@ -1961,6 +2063,8 @@ function stopWebcam() {
 
     // Load default image
     loadDefaultImage();
+
+    updateMobilePlaybackControls();
 
     showToast('Webcam stopped');
 }
