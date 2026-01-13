@@ -115,7 +115,7 @@ header p {
 }
 
 .control-section {
-    margin-bottom: 24px;
+    margin-bottom: 8px;
 }
 
 .control-section:last-child {
@@ -133,6 +133,12 @@ header p {
     justify-content: space-between;
     align-items: center;
     user-select: none;
+    /* Pill background style */
+    background: var(--bg-tertiary);
+    padding: 6px 12px;
+    border-radius: 20px;
+    margin-left: -12px;
+    margin-right: -12px;
 }
 
 .control-section h3::after {
@@ -157,54 +163,75 @@ header p {
     display: none;
 }
 
-/* Heading Style Options (temporary - for preview) */
+/* Content Layout Style Options (temporary - for preview) */
 
-/* Option A: Bottom border */
-.heading-style-a .control-section h3 {
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 8px;
-}
-
-/* Option B: Background highlight */
-.heading-style-b .control-section h3 {
-    background: var(--bg-tertiary);
-    margin-left: -12px;
-    margin-right: -12px;
-    padding: 8px 12px;
-    border-radius: 4px;
-}
-
-/* Option C: Left accent bar */
-.heading-style-c .control-section h3 {
-    border-left: 3px solid var(--accent-color);
-    padding-left: 10px;
-    margin-left: -2px;
-}
-
-/* Option D: Bolder typography */
-.heading-style-d .control-section h3 {
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    letter-spacing: 0.3px;
-}
-
-/* Option E: Top + bottom borders */
-.heading-style-e .control-section h3 {
-    border-top: 1px solid var(--border-color);
-    border-bottom: 1px solid var(--border-color);
-    padding: 8px 0;
-    margin-top: -1px;
-}
-
-/* Option F: Background + rounded pill */
-.heading-style-f .control-section h3 {
-    background: var(--bg-tertiary);
-    padding: 6px 12px;
-    border-radius: 20px;
-    margin-left: -12px;
-    margin-right: -12px;
+/* Option A: Tighter spacing */
+.content-style-a .setting-row {
     margin-bottom: 8px;
+}
+.content-style-a .checkbox-row {
+    margin-bottom: 6px;
+}
+.content-style-a .control-section {
+    margin-bottom: 4px;
+}
+
+/* Option B: More padding */
+.content-style-b .section-content {
+    padding: 12px;
+    background: var(--bg-primary);
+    border-radius: 8px;
+    margin-top: 8px;
+}
+.content-style-b .setting-row {
+    margin-bottom: 16px;
+}
+
+/* Option C: Compact rows */
+.content-style-c .setting-row {
+    margin-bottom: 6px;
+}
+.content-style-c .setting-row label {
+    margin-bottom: 2px;
+    font-size: 0.8rem;
+}
+.content-style-c .checkbox-row {
+    margin-bottom: 4px;
+}
+.content-style-c .checkbox-row label {
+    font-size: 0.8rem;
+}
+
+/* Option D: Card style */
+.content-style-d .section-content {
+    background: var(--bg-primary);
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 8px;
+    border: 1px solid var(--border-color);
+}
+.content-style-d .setting-row {
+    margin-bottom: 12px;
+}
+.content-style-d .setting-row:last-child {
+    margin-bottom: 0;
+}
+
+/* Option E: Separator lines */
+.content-style-e .setting-row {
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+.content-style-e .setting-row:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+.content-style-e .checkbox-row {
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
 }
 
 /* Style selector (temporary) */
@@ -548,6 +575,53 @@ input[type="color"] {
 .checkbox-row input[type="checkbox"]:focus {
     outline: none;
     border-color: var(--accent-color);
+}
+
+/* Style all checkboxes in controls (including inline auto checkboxes) */
+.controls input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    position: relative;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.controls input[type="checkbox"]:checked {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+.controls input[type="checkbox"]:checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+}
+
+.controls input[type="checkbox"]:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+/* Override for checkbox-row (larger checkboxes) */
+.checkbox-row input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+}
+
+.checkbox-row input[type="checkbox"]:checked::after {
+    font-size: 12px;
 }
 
 .inline-group {

@@ -1026,18 +1026,18 @@ const debouncedConvert = adaptiveDebounce(() => {
 });
 
 function setupEventListeners() {
-    // Temporary: Heading style selector
-    const headingStyleSelect = document.getElementById('heading-style-select');
-    if (headingStyleSelect) {
-        headingStyleSelect.addEventListener('change', () => {
-            // Remove all heading style classes
+    // Temporary: Content layout style selector
+    const contentStyleSelect = document.getElementById('content-style-select');
+    if (contentStyleSelect) {
+        contentStyleSelect.addEventListener('change', () => {
+            // Remove all content style classes
             document.body.classList.remove(
-                'heading-style-a', 'heading-style-b', 'heading-style-c',
-                'heading-style-d', 'heading-style-e', 'heading-style-f'
+                'content-style-a', 'content-style-b', 'content-style-c',
+                'content-style-d', 'content-style-e'
             );
             // Add selected style class
-            if (headingStyleSelect.value) {
-                document.body.classList.add(headingStyleSelect.value);
+            if (contentStyleSelect.value) {
+                document.body.classList.add(contentStyleSelect.value);
             }
         });
     }
