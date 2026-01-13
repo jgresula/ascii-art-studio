@@ -204,6 +204,7 @@ header p {
     border-radius: 20px;
     margin-left: -12px;
     margin-right: -12px;
+    margin-bottom: 8px;
 }
 
 /* Style selector (temporary) */
@@ -428,6 +429,47 @@ input[type="color"] {
 .setting-row input[type="range"] {
     width: 100%;
     margin-bottom: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.setting-row input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--accent-color);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+    transition: transform 0.1s ease;
+}
+
+.setting-row input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+}
+
+.setting-row input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: var(--accent-color);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+}
+
+.setting-row input[type="range"]::-moz-range-track {
+    background: var(--bg-tertiary);
+    height: 6px;
+    border-radius: 3px;
+}
+
+.setting-row input[type="range"]:focus {
+    outline: none;
 }
 
 .setting-row.disabled {
@@ -478,6 +520,34 @@ input[type="color"] {
     width: 18px;
     height: 18px;
     cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    position: relative;
+    transition: all 0.15s ease;
+}
+
+.checkbox-row input[type="checkbox"]:checked {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+.checkbox-row input[type="checkbox"]:checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.checkbox-row input[type="checkbox"]:focus {
+    outline: none;
+    border-color: var(--accent-color);
 }
 
 .inline-group {
