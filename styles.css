@@ -167,7 +167,7 @@ header p {
 
 /* Option B: Background highlight */
 .heading-style-b .control-section h3 {
-    background: var(--bg-secondary);
+    background: var(--bg-tertiary);
     margin-left: -12px;
     margin-right: -12px;
     padding: 8px 12px;
@@ -199,7 +199,7 @@ header p {
 
 /* Option F: Background + rounded pill */
 .heading-style-f .control-section h3 {
-    background: var(--bg-secondary);
+    background: var(--bg-tertiary);
     padding: 6px 12px;
     border-radius: 20px;
     margin-left: -12px;
