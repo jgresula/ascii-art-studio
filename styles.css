@@ -163,106 +163,19 @@ header p {
     display: none;
 }
 
-/* Content Layout Style Options (temporary - for preview) */
-
-/* Option A: Tighter spacing */
-.content-style-a .setting-row {
-    margin-bottom: 8px;
-}
-.content-style-a .checkbox-row {
-    margin-bottom: 6px;
-}
-.content-style-a .control-section {
-    margin-bottom: 4px;
-}
-
-/* Option B: More padding */
-.content-style-b .section-content {
-    padding: 12px;
-    background: var(--bg-primary);
-    border-radius: 8px;
-    margin-top: 8px;
-}
-.content-style-b .setting-row {
-    margin-bottom: 16px;
-}
-
-/* Option C: Compact rows */
-.content-style-c .setting-row {
-    margin-bottom: 6px;
-}
-.content-style-c .setting-row label {
-    margin-bottom: 2px;
-    font-size: 0.8rem;
-}
-.content-style-c .checkbox-row {
-    margin-bottom: 4px;
-}
-.content-style-c .checkbox-row label {
-    font-size: 0.8rem;
-}
-
-/* Option D: Card style */
-.content-style-d .section-content {
-    background: var(--bg-primary);
-    border-radius: 8px;
-    padding: 12px;
-    margin-top: 8px;
-    border: 1px solid var(--border-color);
-}
-.content-style-d .setting-row {
-    margin-bottom: 12px;
-}
-.content-style-d .setting-row:last-child {
-    margin-bottom: 0;
-}
-
-/* Option E: Separator lines */
-.content-style-e .setting-row {
-    padding-bottom: 10px;
-    margin-bottom: 10px;
-    border-bottom: 1px solid var(--border-color);
-}
-.content-style-e .setting-row:last-child {
-    border-bottom: none;
-    margin-bottom: 0;
-    padding-bottom: 0;
-}
-.content-style-e .checkbox-row {
-    padding-bottom: 8px;
-    margin-bottom: 8px;
-    border-bottom: 1px solid var(--border-color);
-}
-
-/* Style selector (temporary) */
-.style-selector {
+/* GitHub link */
+.github-link {
     position: fixed;
-    top: 10px;
-    right: 10px;
+    top: 12px;
+    right: 12px;
     z-index: 10000;
-    background: var(--bg-primary);
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
-}
-
-.style-selector label {
     color: var(--text-secondary);
-    white-space: nowrap;
+    opacity: 0.6;
+    transition: opacity 0.2s;
 }
 
-.style-selector select {
-    padding: 4px 8px;
-    border-radius: 4px;
-    border: 1px solid var(--border-color);
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    font-size: 0.85rem;
+.github-link:hover {
+    opacity: 1;
 }
 
 /* Color inputs */

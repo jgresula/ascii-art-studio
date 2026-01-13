@@ -9,6 +9,8 @@ A web-based tool that converts images and videos into ASCII art in real-time. Up
 - **Multiple input sources** - Upload images, load videos, or stream from your webcam
 - **Drag & drop and paste support** - Quickly load media by dragging files or pasting from clipboard (Ctrl+V)
 - **Real-time preview** - See changes instantly as you adjust settings
+- **Custom character sets** - Use your own characters or choose from built-in sets (standard, detailed, blocks)
+- **Color customization** - Monochrome, true color, or adaptive palettes with adjustable contrast, saturation, and brightness
 - **Built-in presets** - Choose from presets like Retro Terminal, Classic ASCII, High Detail, and more
 - **Custom presets** - Save your favorite configurations for later use
 - **Flexible export options** - Copy as text, HTML, or Markdown; download as PNG; record animated GIFs or videos
